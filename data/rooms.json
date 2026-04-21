@@ -1,0 +1,135 @@
+{
+  "rooms": [
+    {
+      "id": "barracks",
+      "label": "Koszary",
+      "description": "Trenuje strażników. Sąsiadujące ze Zbrojownią: +3 ATK",
+      "requiredFurniture": ["TRAINING_DUMMY"],
+      "minSize": 4,
+      "selfSpeedBuff": 0,
+      "selfAttackBuff": 2,
+      "selfDefenseBuff": 1,
+      "selfHealPerTick": 0,
+      "tintColor": [60, 80, 200],
+      "adjacencyBonuses": [
+        { "neighborId": "armory", "speedBuff": 0, "attackBuff": 3, "defenseBuff": 0, "healBuff": 0 }
+      ]
+    },
+    {
+      "id": "armory",
+      "label": "Zbrojownia",
+      "description": "Zwiększa atak jednostek. Sąsiaduje z Kuźnią: +2 DEF",
+      "requiredFurniture": ["ANVIL"],
+      "minSize": 4,
+      "selfSpeedBuff": 0,
+      "selfAttackBuff": 2,
+      "selfDefenseBuff": 0,
+      "selfHealPerTick": 0,
+      "tintColor": [200, 60, 60],
+      "adjacencyBonuses": [
+        { "neighborId": "forge_room", "speedBuff": 0, "attackBuff": 0, "defenseBuff": 2, "healBuff": 0 }
+      ]
+    },
+    {
+      "id": "forge_room",
+      "label": "Kuźnia",
+      "description": "Produkuje sprzęt. Sąsiaduje z Magazynem: +20% prędkości",
+      "requiredFurniture": ["FORGE", "ANVIL"],
+      "minSize": 6,
+      "selfSpeedBuff": 0,
+      "selfAttackBuff": 0,
+      "selfDefenseBuff": 2,
+      "selfHealPerTick": 0,
+      "tintColor": [200, 100, 20],
+      "adjacencyBonuses": [
+        { "neighborId": "stockroom", "speedBuff": 20, "attackBuff": 0, "defenseBuff": 0, "healBuff": 0 }
+      ]
+    },
+    {
+      "id": "dormitory",
+      "label": "Sypialnia",
+      "description": "Regeneruje HP. Sąsiaduje z Kuchnią: +2 HP/tick",
+      "requiredFurniture": ["BED"],
+      "minSize": 4,
+      "selfSpeedBuff": 0,
+      "selfAttackBuff": 0,
+      "selfDefenseBuff": 0,
+      "selfHealPerTick": 2,
+      "tintColor": [160, 100, 200],
+      "adjacencyBonuses": [
+        { "neighborId": "kitchen", "speedBuff": 0, "attackBuff": 0, "defenseBuff": 0, "healBuff": 2 }
+      ]
+    },
+    {
+      "id": "kitchen",
+      "label": "Kuchnia",
+      "description": "Wytwarza jedzenie. Sąsiaduje z Sypialnią: +4 HP regen",
+      "requiredFurniture": ["TABLE", "CAMPFIRE"],
+      "minSize": 4,
+      "selfSpeedBuff": 0,
+      "selfAttackBuff": 0,
+      "selfDefenseBuff": 0,
+      "selfHealPerTick": 1,
+      "tintColor": [200, 180, 60],
+      "adjacencyBonuses": [
+        { "neighborId": "dormitory", "speedBuff": 0, "attackBuff": 0, "defenseBuff": 0, "healBuff": 2 }
+      ]
+    },
+    {
+      "id": "library",
+      "label": "Biblioteka",
+      "description": "Przyspiesza zdobywanie XP. Sąsiaduje z Salą tronową: +15% XP",
+      "requiredFurniture": ["BOOKSHELF", "TABLE"],
+      "minSize": 6,
+      "selfSpeedBuff": 0,
+      "selfAttackBuff": 0,
+      "selfDefenseBuff": 0,
+      "selfHealPerTick": 0,
+      "tintColor": [60, 160, 80],
+      "adjacencyBonuses": [
+        { "neighborId": "throne_room", "speedBuff": 0, "attackBuff": 0, "defenseBuff": 0, "healBuff": 0 }
+      ]
+    },
+    {
+      "id": "throne_room",
+      "label": "Sala tronowa",
+      "description": "Zwiększa limit jednostek. Wymaga Tronu i Krzeseł",
+      "requiredFurniture": ["THRONE", "CHAIR"],
+      "minSize": 9,
+      "selfSpeedBuff": 5,
+      "selfAttackBuff": 3,
+      "selfDefenseBuff": 3,
+      "selfHealPerTick": 0,
+      "tintColor": [200, 160, 0],
+      "adjacencyBonuses": []
+    },
+    {
+      "id": "stockroom",
+      "label": "Magazyn",
+      "description": "Zwiększa pojemność surowców",
+      "requiredFurniture": ["STOCKPILE"],
+      "minSize": 4,
+      "selfSpeedBuff": 0,
+      "selfAttackBuff": 0,
+      "selfDefenseBuff": 0,
+      "selfHealPerTick": 0,
+      "tintColor": [160, 140, 80],
+      "adjacencyBonuses": []
+    },
+    {
+      "id": "watchtower_room",
+      "label": "Baszta strażnicza",
+      "description": "Strażnicy w środku mają +4 DEF i widzą wrogów z daleka",
+      "requiredFurniture": ["WATCHTOWER"],
+      "minSize": 2,
+      "selfSpeedBuff": 0,
+      "selfAttackBuff": 0,
+      "selfDefenseBuff": 4,
+      "selfHealPerTick": 0,
+      "tintColor": [100, 180, 180],
+      "adjacencyBonuses": [
+        { "neighborId": "barracks", "speedBuff": 0, "attackBuff": 2, "defenseBuff": 0, "healBuff": 0 }
+      ]
+    }
+  ]
+}

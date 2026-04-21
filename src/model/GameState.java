@@ -1,112 +1,172 @@
 package model;
 
-import java.awt.Color;
-import java.util.ArrayList;
-import java.util.List;
+import model.building.RoomSystem;
+import model.entity.Unit;
+import model.entity.UnitClass;
+import model.world.ResourceType;
+import model.world.TileType;
+import model.world.WorldMap;
+import util.GameConfig;
+import util.JsonParser;
+
+import java.util.*;
 
 /**
- * Centralny stan gry (Model w MVC).
+ * Centralny stan gry – parametry startowe z game_config.json.
  */
 public class GameState {
-    public enum Phase { PLAYER_TURN, AI_TURN, GAME_OVER }
+    private final WorldMap    map;
+    private final RoomSystem  roomSystem;
+    private final WaveManager waveManager;
+    private final List<Unit>  units = new ArrayList<>();
+    private final Map<String, Integer> resources = new LinkedHashMap<>();
 
-    private final GameMap    map;
-    private final Player[]   players;
-    private final List<Unit> units;
+    private int     storageCapacity;
+    private int     unitCap;
+    private int     totalTick = 0;
+    private boolean paused    = false;
+    private boolean gameWon   = false;
+    private Unit    selectedUnit = null;
+    private String  buildMode    = null;  // TileType id or null
 
-    private int    currentPlayerIndex;
-    private int    turnNumber;
-    private Phase  phase;
-    private Player winner;
-    private Unit   selectedUnit;
+    private final List<String> eventLog = new ArrayList<>();
+    private static final int   LOG_MAX  = 60;
 
     public GameState() {
-        map     = new GameMap();
-        players = new Player[]{
-            new Player("Gracz", new Color(60, 120, 220), false),
-            new Player("AI",    new Color(220,  60,  60), true)
-        };
-        units       = new ArrayList<>();
-        phase       = Phase.PLAYER_TURN;
-        turnNumber  = 1;
-        currentPlayerIndex = 0;
-        spawnUnits();
-    }
+        GameConfig cfg = GameConfig.get();
+        map            = new WorldMap(cfg.mapSeed());
+        roomSystem     = new RoomSystem(map);
+        waveManager    = new WaveManager(cfg.mapSeed());
+        storageCapacity = cfg.startingStorage();
+        unitCap         = cfg.startingUnitCap();
 
-    private void spawnUnits() {
-        placeUnit(UnitType.WARRIOR, players[0], 0, 0);
-        placeUnit(UnitType.ARCHER,  players[0], 1, 0);
-        placeUnit(UnitType.KNIGHT,  players[0], 0, 1);
+        // Zasoby startowe z JSON
+        ResourceType.all().forEach(rt -> resources.put(rt.id, 0));
+        cfg.startingResources().forEach((id, val) ->
+            resources.put(id, JsonParser.asInt(val)));
 
-        placeUnit(UnitType.WARRIOR, players[1], GameMap.ROWS-1, GameMap.COLS-1);
-        placeUnit(UnitType.ARCHER,  players[1], GameMap.ROWS-2, GameMap.COLS-1);
-        placeUnit(UnitType.KNIGHT,  players[1], GameMap.ROWS-1, GameMap.COLS-2);
-    }
-
-    private void placeUnit(UnitType type, Player owner, int row, int col) {
-        Tile tile = map.getTile(row, col);
-        if (tile == null || tile.getTerrain() == Terrain.WATER) return;
-        Unit unit = new Unit(type, owner, row, col);
-        units.add(unit);
-        tile.setUnit(unit);
-        tile.setOwner(owner);
-    }
-
-    /** Kończy turę i przekazuje kontrolę drugiemu graczowi. */
-    public void endTurn() {
-        selectedUnit = null;
-        currentPlayerIndex = 1 - currentPlayerIndex;
-        if (currentPlayerIndex == 0) turnNumber++;
-        phase = getCurrentPlayer().isAI() ? Phase.AI_TURN : Phase.PLAYER_TURN;
-        for (Unit u : units)
-            if (u.getOwner() == getCurrentPlayer()) u.resetTurn();
-        checkWinCondition();
-    }
-
-    private void checkWinCondition() {
-        boolean p0 = units.stream().anyMatch(u -> u.getOwner() == players[0] && u.isAlive());
-        boolean p1 = units.stream().anyMatch(u -> u.getOwner() == players[1] && u.isAlive());
-        if (!p0) { winner = players[1]; phase = Phase.GAME_OVER; }
-        if (!p1) { winner = players[0]; phase = Phase.GAME_OVER; }
-    }
-
-    /** Przesuwa jednostkę na docelowe pole. */
-    public void moveUnit(Unit unit, int toRow, int toCol) {
-        map.getTile(unit.getRow(), unit.getCol()).setUnit(null);
-        Tile dest = map.getTile(toRow, toCol);
-        dest.setUnit(unit);
-        dest.setOwner(unit.getOwner());
-        unit.setPosition(toRow, toCol);
-        unit.setMovedThisTurn(true);
-    }
-
-    /**
-     * Przeprowadza atak. Zwraca opis walki do logu.
-     */
-    public String attack(Unit attacker, Unit target) {
-        int damage   = attacker.calculateDamage(target);
-        boolean alive = target.takeDamage(damage);
-        attacker.setAttackedThisTurn(true);
-        attacker.setMovedThisTurn(true);
-
-        String log = attacker.getType().displayName + " atakuje " +
-                     target.getType().displayName + " – " + damage + " obrażeń.";
-        if (!alive) {
-            map.getTile(target.getRow(), target.getCol()).setUnit(null);
-            units.remove(target);
-            log += " Pokonany!";
+        // Jednostki startowe z JSON
+        for (Object o : cfg.startingUnits()) {
+            Map<String,Object> m = JsonParser.asMap(o);
+            String uid = JsonParser.asString(m.get("unitId"));
+            int ox = JsonParser.getInt(m, "offsetX", 0);
+            int oy = JsonParser.getInt(m, "offsetY", 0);
+            spawnPlayer(uid, map.fortressX + ox, map.fortressY + oy);
         }
-        checkWinCondition();
-        return log;
+
+        roomSystem.rescan();
+        log("Gra rozpoczęta. Zbuduj twierdzę i odepnij pierwszą falę!");
     }
 
-    public GameMap    getMap()                { return map; }
-    public Player[]   getPlayers()            { return players; }
-    public List<Unit> getUnits()              { return units; }
-    public Player     getCurrentPlayer()      { return players[currentPlayerIndex]; }
-    public int        getTurnNumber()         { return turnNumber; }
-    public Phase      getPhase()              { return phase; }
-    public Player     getWinner()             { return winner; }
-    public Unit       getSelectedUnit()       { return selectedUnit; }
-    public void       setSelectedUnit(Unit u) { this.selectedUnit = u; }
+    public void tick(double dt) {
+        if (paused || gameWon) return;
+        totalTick++;
+
+        // Fale wrogów
+        List<Unit> spawned = waveManager.tick(map, units);
+        units.addAll(spawned);
+        if (!spawned.isEmpty())
+            log("⚔ FALA " + waveManager.getWaveNumber() + " – " + spawned.size() + " wrogów!");
+
+        // Regeneracja w pokojach co healIntervalTicks
+        if (totalTick % GameConfig.get().healIntervalTicks() == 0) {
+            for (Unit u : units) {
+                if (!u.isAlive() || !u.isPlayerOwned()) continue;
+                int[] buffs = roomSystem.getBuffsAt(u.getTileX(), u.getTileY());
+                if (buffs[3] > 0) u.heal(buffs[3]);
+                u.setSpeedBuff(buffs[0]);
+                u.setAttackBuff(buffs[1]);
+                u.setDefenseBuff(buffs[2]);
+            }
+        }
+
+        units.removeIf(u -> !u.isAlive());
+
+        // Handel pasywny
+        if (totalTick % GameConfig.get().tradeInterval() == 0) {
+            long traders = units.stream().filter(u -> u.isPlayerOwned() && u.getUnitClass().canTrade).count();
+            if (traders > 0) {
+                int gold = (int)(traders * (GameConfig.get().traderGoldBase() + Math.random() * GameConfig.get().traderGoldRandom()));
+                addResource(ResourceType.GOLD, gold);
+            }
+        }
+
+        // Powiadomienia o fali
+        if (waveManager.getState() == WaveManager.WaveState.WARNING
+                && waveManager.getTicksToWave() % 60 == 0) {
+            log("⚠ Fala nadchodzi za " + waveManager.getTicksToWave()/60 + "s!");
+        }
+
+        if (!gameWon && waveManager.isFirstWaveCleared()) {
+            gameWon = true;
+            log("🏆 ZWYCIĘSTWO! Pierwsza fala odparta!");
+        }
+    }
+
+    public boolean addResource(String typeId, int amount) {
+        int cur = resources.getOrDefault(typeId, 0);
+        int nv  = Math.min(cur + amount, storageCapacity);
+        resources.put(typeId, nv);
+        return nv > cur;
+    }
+
+    public boolean spendResource(String typeId, int amount) {
+        int cur = resources.getOrDefault(typeId, 0);
+        if (cur < amount) return false;
+        resources.put(typeId, cur - amount);
+        return true;
+    }
+
+    public boolean canAfford(Map<String,Integer> cost) {
+        for (var e : cost.entrySet())
+            if (resources.getOrDefault(e.getKey(), 0) < e.getValue()) return false;
+        return true;
+    }
+
+    public boolean spend(Map<String,Integer> cost) {
+        if (!canAfford(cost)) return false;
+        cost.forEach((k,v) -> resources.put(k, resources.get(k)-v));
+        return true;
+    }
+
+    public Unit spawnPlayer(String classId, int x, int y) {
+        Unit u = new Unit(classId, x, y, true);
+        units.add(u);
+        return u;
+    }
+
+    public Unit spawnEnemy(String classId, int x, int y) {
+        Unit u = new Unit(classId, x, y, false);
+        units.add(u);
+        return u;
+    }
+
+    public List<Unit> getPlayerUnits()  { return units.stream().filter(Unit::isPlayerOwned).toList(); }
+    public List<Unit> getEnemyUnits()   { return units.stream().filter(u -> !u.isPlayerOwned()).toList(); }
+    public int        playerUnitCount() { return (int)units.stream().filter(Unit::isPlayerOwned).count(); }
+
+    public void log(String msg) {
+        eventLog.add(0, msg);
+        if (eventLog.size() > LOG_MAX) eventLog.remove(eventLog.size()-1);
+    }
+
+    // Gettery
+    public WorldMap    getMap()            { return map; }
+    public RoomSystem  getRoomSystem()     { return roomSystem; }
+    public WaveManager getWaveManager()    { return waveManager; }
+    public List<Unit>  getUnits()          { return units; }
+    public Map<String,Integer> getResources() { return resources; }
+    public int         getResource(String id) { return resources.getOrDefault(id, 0); }
+    public int         getStorageCapacity(){ return storageCapacity; }
+    public int         getUnitCap()        { return unitCap; }
+    public void        setUnitCap(int v)   { unitCap = v; }
+    public int         getTotalTick()      { return totalTick; }
+    public boolean     isPaused()          { return paused; }
+    public void        setPaused(boolean v){ paused = v; }
+    public boolean     isGameWon()         { return gameWon; }
+    public Unit        getSelectedUnit()   { return selectedUnit; }
+    public void        setSelectedUnit(Unit u){ selectedUnit = u; }
+    public String      getBuildMode()      { return buildMode; }
+    public void        setBuildMode(String t){ buildMode = t; }
+    public List<String> getEventLog()      { return eventLog; }
 }

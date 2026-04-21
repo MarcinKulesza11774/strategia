@@ -1,0 +1,258 @@
+{
+  "tiles": [
+    {
+      "id": "GRASS",
+      "label": "Trawa",
+      "color": [100, 160, 60],
+      "passable": true,
+      "isWall": false,
+      "isFloor": false,
+      "isResource": false
+    },
+    {
+      "id": "DIRT",
+      "label": "Ziemia",
+      "color": [140, 110, 70],
+      "passable": true,
+      "isWall": false,
+      "isFloor": false,
+      "isResource": false
+    },
+    {
+      "id": "WATER",
+      "label": "Woda",
+      "color": [60, 120, 200],
+      "passable": false,
+      "isWall": false,
+      "isFloor": false,
+      "isResource": false
+    },
+    {
+      "id": "FOREST",
+      "label": "Las",
+      "color": [34, 90, 34],
+      "passable": false,
+      "isWall": false,
+      "isFloor": false,
+      "isResource": false
+    },
+    {
+      "id": "MOUNTAIN",
+      "label": "Góra",
+      "color": [120, 100, 80],
+      "passable": false,
+      "isWall": false,
+      "isFloor": false,
+      "isResource": false
+    },
+    {
+      "id": "STONE_FLOOR",
+      "label": "Kamienna podłoga",
+      "color": [160, 155, 150],
+      "passable": true,
+      "isWall": false,
+      "isFloor": false,
+      "isResource": false
+    },
+    {
+      "id": "IRON_ORE",
+      "label": "Ruda żelaza",
+      "color": [180, 80, 40],
+      "passable": false,
+      "isWall": false,
+      "isFloor": false,
+      "isResource": true,
+      "resourceType": "IRON",
+      "harvestTicks": 80,
+      "harvestYieldMin": 5,
+      "harvestYieldMax": 12,
+      "harvestRemnant": "STONE_FLOOR"
+    },
+    {
+      "id": "WOOD_LOG",
+      "label": "Drewno",
+      "color": [100, 70, 30],
+      "passable": false,
+      "isWall": false,
+      "isFloor": false,
+      "isResource": true,
+      "resourceType": "WOOD",
+      "harvestTicks": 40,
+      "harvestYieldMin": 5,
+      "harvestYieldMax": 12,
+      "harvestRemnant": "DIRT"
+    },
+    {
+      "id": "STONE_ROCK",
+      "label": "Kamień",
+      "color": [150, 140, 130],
+      "passable": false,
+      "isWall": false,
+      "isFloor": false,
+      "isResource": true,
+      "resourceType": "STONE",
+      "harvestTicks": 60,
+      "harvestYieldMin": 5,
+      "harvestYieldMax": 12,
+      "harvestRemnant": "DIRT"
+    },
+    {
+      "id": "FOOD_PLANT",
+      "label": "Roślina",
+      "color": [80, 180, 60],
+      "passable": true,
+      "isWall": false,
+      "isFloor": false,
+      "isResource": true,
+      "resourceType": "FOOD",
+      "harvestTicks": 20,
+      "harvestYieldMin": 5,
+      "harvestYieldMax": 12,
+      "harvestRemnant": "GRASS"
+    },
+    {
+      "id": "WALL",
+      "label": "Ściana",
+      "color": [80, 75, 70],
+      "passable": false,
+      "isWall": true,
+      "isFloor": false,
+      "isResource": false
+    },
+    {
+      "id": "FLOOR",
+      "label": "Podłoga",
+      "color": [190, 180, 165],
+      "passable": true,
+      "isWall": false,
+      "isFloor": true,
+      "isResource": false
+    },
+    {
+      "id": "DOOR",
+      "label": "Drzwi",
+      "color": [120, 80, 40],
+      "passable": true,
+      "isWall": false,
+      "isFloor": false,
+      "isResource": false
+    },
+    {
+      "id": "GATE",
+      "label": "Brama",
+      "color": [90, 60, 30],
+      "passable": true,
+      "isWall": false,
+      "isFloor": false,
+      "isResource": false
+    },
+    {
+      "id": "CAMPFIRE",
+      "label": "Ognisko",
+      "color": [220, 120, 20],
+      "passable": true,
+      "isWall": false,
+      "isFloor": false,
+      "isResource": false
+    },
+    {
+      "id": "STOCKPILE",
+      "label": "Magazyn",
+      "color": [200, 180, 100],
+      "passable": true,
+      "isWall": false,
+      "isFloor": false,
+      "isResource": false
+    },
+    {
+      "id": "BED",
+      "label": "Łóżko",
+      "color": [160, 120, 180],
+      "passable": true,
+      "isWall": false,
+      "isFloor": false,
+      "isResource": false
+    },
+    {
+      "id": "TABLE",
+      "label": "Stół",
+      "color": [140, 90, 40],
+      "passable": true,
+      "isWall": false,
+      "isFloor": false,
+      "isResource": false
+    },
+    {
+      "id": "CHAIR",
+      "label": "Krzesło",
+      "color": [120, 80, 35],
+      "passable": true,
+      "isWall": false,
+      "isFloor": false,
+      "isResource": false
+    },
+    {
+      "id": "ANVIL",
+      "label": "Kowadło",
+      "color": [100, 100, 110],
+      "passable": true,
+      "isWall": false,
+      "isFloor": false,
+      "isResource": false
+    },
+    {
+      "id": "FORGE",
+      "label": "Kuźnia",
+      "color": [200, 80, 20],
+      "passable": true,
+      "isWall": false,
+      "isFloor": false,
+      "isResource": false
+    },
+    {
+      "id": "BOOKSHELF",
+      "label": "Półka",
+      "color": [100, 130, 60],
+      "passable": true,
+      "isWall": false,
+      "isFloor": false,
+      "isResource": false
+    },
+    {
+      "id": "TRAINING_DUMMY",
+      "label": "Manekin",
+      "color": [160, 140, 90],
+      "passable": true,
+      "isWall": false,
+      "isFloor": false,
+      "isResource": false
+    },
+    {
+      "id": "THRONE",
+      "label": "Tron",
+      "color": [200, 160, 30],
+      "passable": true,
+      "isWall": false,
+      "isFloor": false,
+      "isResource": false
+    },
+    {
+      "id": "WATCHTOWER",
+      "label": "Wieża strażnicza",
+      "color": [110, 100, 90],
+      "passable": true,
+      "isWall": false,
+      "isFloor": false,
+      "isResource": false
+    },
+    {
+      "id": "SPAWN_POINT",
+      "label": "Punkt spawnu",
+      "color": [255, 60, 60],
+      "passable": true,
+      "isWall": false,
+      "isFloor": false,
+      "isResource": false
+    }
+  ]
+}

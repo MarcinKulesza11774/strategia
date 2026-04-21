@@ -1,0 +1,16 @@
+{
+  "recruitment": [
+    {
+      "unitId": "WORKER",
+      "cost": { "FOOD": 10, "GOLD": 5 }
+    },
+    {
+      "unitId": "GUARD",
+      "cost": { "FOOD": 10, "GOLD": 15 }
+    },
+    {
+      "unitId": "TRADER",
+      "cost": { "GOLD": 30 }
+    }
+  ]
+}
