@@ -88,18 +88,60 @@ public class WorldMap {
     public boolean inBounds(int x, int y)     { return x>=0&&x<WIDTH&&y>=0&&y<HEIGHT; }
     public boolean isPassable(int x, int y)   { Tile t=getTile(x,y); return t!=null&&TileType.get(t.getTypeId()).passable; }
 
-    public int[] findNearestAnyResource(int fx, int fy, int radius) {
-        int bx=-1,by=-1; double bd=Double.MAX_VALUE;
-        for (int y=fy-radius;y<=fy+radius;y++)
-            for (int x=fx-radius;x<=fx+radius;x++) {
-                if (!inBounds(x,y)) continue;
-                Tile t=tiles[y][x];
-                if (!t.isMarkedForHarvest() && TileType.get(t.getTypeId()).isResource) {
-                    double d=Math.hypot(x-fx,y-fy);
-                    if (d<bd){bd=d;bx=x;by=y;}
-                }
+    /**
+     * Szuka najbliższego wolnego zasobu (niezarezerwowanego przez inną jednostkę).
+     * @param fx      X szukającego w kafelkach
+     * @param fy      Y szukającego w kafelkach
+     * @param radius  promień szukania w kafelkach
+     * @return [x, y] wolnego zasobu lub null
+     */
+    public int[] findNearestFreeResource(int fx, int fy, int radius) {
+        int najblX = -1, najblY = -1;
+        double najblOdl = Double.MAX_VALUE;
+        for (int y = fy - radius; y <= fy + radius; y++) {
+            for (int x = fx - radius; x <= fx + radius; x++) {
+                if (!inBounds(x, y)) continue;
+                Tile kafelek = tiles[y][x];
+                if (kafelek.isMarkedForHarvest()) continue;
+                if (!TileType.get(kafelek.getTypeId()).isResource) continue;
+                double odl = Math.hypot(x - fx, y - fy);
+                if (odl < najblOdl) { najblOdl = odl; najblX = x; najblY = y; }
             }
-        return bx==-1?null:new int[]{bx,by};
+        }
+        return najblX == -1 ? null : new int[]{najblX, najblY};
+    }
+
+    /** Alias dla findNearestFreeResource – zachowany dla kompatybilności. */
+    public int[] findNearestAnyResource(int fx, int fy, int radius) {
+        return findNearestFreeResource(fx, fy, radius);
+    }
+
+
+    /**
+     * Szuka najbliższego wolnego zasobu w podanym prostokącie mapy.
+     * Używana gdy jednostka ma rozkaz ZBIERAJ z wyznaczonym obszarem.
+     *
+     * @param startX  X jednostki szukającej
+     * @param startY  Y jednostki szukającej
+     * @param x1,y1   lewy górny róg obszaru
+     * @param x2,y2   prawy dolny róg obszaru
+     * @return [x, y] wolnego zasobu lub null
+     */
+    public int[] findNearestFreeResourceInArea(int startX, int startY,
+                                                int x1, int y1, int x2, int y2) {
+        int najblX = -1, najblY = -1;
+        double najblOdl = Double.MAX_VALUE;
+        for (int y = y1; y <= y2; y++) {
+            for (int x = x1; x <= x2; x++) {
+                if (!inBounds(x, y)) continue;
+                Tile kafelek = tiles[y][x];
+                if (kafelek.isMarkedForHarvest()) continue;
+                if (!TileType.get(kafelek.getTypeId()).isResource) continue;
+                double odl = Math.hypot(x - startX, y - startY);
+                if (odl < najblOdl) { najblOdl = odl; najblX = x; najblY = y; }
+            }
+        }
+        return najblX == -1 ? null : new int[]{najblX, najblY};
     }
 
     public int[] findNearestBuildTask(int fx, int fy) {

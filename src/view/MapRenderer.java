@@ -6,102 +6,145 @@ import model.entity.Unit;
 import model.world.Tile;
 import model.world.TileType;
 import model.world.WorldMap;
+import util.ImageCache;
 
 import java.awt.*;
+import java.awt.image.BufferedImage;
 
 /**
- * Renderuje widoczny fragment mapy z cullingiem.
- * Obsługuje dynamiczny rozmiar kafelka (zoom).
+ * Rysuje widoczny wycinek mapy (culling – tylko kafelki w obrębie kamery).
+ *
+ * Dla każdego kafelka:
+ *   1. Jeśli kafelek ma przypisany obrazek w tiles.json → narysuj obrazek
+ *   2. Jeśli nie → narysuj kolor z tiles.json
+ *   3. Na wierzch nałóż podświetlenia (zaznaczenie do budowy / zbierania)
+ *   4. Nałóż kolor pokoju (lekkie tło)
+ *   5. Narysuj siatkę
+ *
+ * Dla każdej jednostki:
+ *   1. Jeśli klasa ma obrazek w units.json → narysuj obrazek
+ *   2. Jeśli nie → narysuj kółko z literą
+ *   3. Pasek HP zawsze
+ *
+ * Argumenty metody render:
+ *   @param grafika       kontekst rysowania Swing
+ *   @param stan          stan gry (mapa, jednostki, pokoje)
+ *   @param kamera        pozycja i zoom kamery
+ *   @param zaznaczona    jednostka zaznaczona przez gracza (lub null)
+ *   @param zaznaczX1..Y2 obszar zaznaczenia myszą (w kafelkach)
+ *   @param czyPrzeciagamy czy gracz aktualnie przeciąga zaznaczenie
  */
 public class MapRenderer {
 
-    public void render(Graphics2D g, GameState state, Camera cam, Unit selectedUnit,
-                       int selX1, int selY1, int selX2, int selY2, boolean dragging) {
-        WorldMap map = state.getMap();
-        int T = cam.getTileSize();
-        int x0 = cam.getFirstTileX(), y0 = cam.getFirstTileY();
-        int x1 = cam.getLastTileX(),  y1 = cam.getLastTileY();
+    public void render(Graphics2D grafika, GameState stan, Camera kamera,
+                       Unit zaznaczona,
+                       int zaznaczX1, int zaznaczY1, int zaznaczX2, int zaznaczY2,
+                       boolean czyPrzeciagamy) {
+        WorldMap mapa = stan.getMap();
+        int rozmiarKafelka = kamera.getTileSize();
 
-        for (int ty = y0; ty <= y1; ty++)
-            for (int tx = x0; tx <= x1; tx++) {
-                Tile tile = map.getTile(tx, ty);
-                if (tile == null) continue;
-                int sx = cam.tileToScreenX(tx);
-                int sy = cam.tileToScreenY(ty);
-                drawTile(g, tile, tx, ty, sx, sy, T, state, cam);
+        // Rysuj tylko kafelki widoczne na ekranie
+        for (int ty = kamera.getFirstTileY(); ty <= kamera.getLastTileY(); ty++) {
+            for (int tx = kamera.getFirstTileX(); tx <= kamera.getLastTileX(); tx++) {
+                Tile kafelek = mapa.getTile(tx, ty);
+                if (kafelek == null) continue;
+                int ekranX = kamera.tileToScreenX(tx);
+                int ekranY = kamera.tileToScreenY(ty);
+                rysujKafelek(grafika, kafelek, tx, ty, ekranX, ekranY, rozmiarKafelka, stan, kamera);
             }
-
-        // Jednostki
-        for (Unit u : state.getUnits()) {
-            if (!u.isAlive() || !cam.isVisible(u.getTileX(), u.getTileY())) continue;
-            drawUnit(g, u, cam.tileToScreenX(u.getX()), cam.tileToScreenY(u.getY()),
-                     u == selectedUnit, T);
         }
 
-        // Zaznaczenie obszaru myszą
-        if (dragging) {
-            int px1 = cam.tileToScreenX(selX1), py1 = cam.tileToScreenY(selY1);
-            int px2 = cam.tileToScreenX(selX2+1), py2 = cam.tileToScreenY(selY2+1);
-            int rx = Math.min(px1,px2), ry = Math.min(py1,py2);
-            int rw = Math.abs(px2-px1), rh = Math.abs(py2-py1);
-            g.setColor(new Color(100, 200, 255, 40));
-            g.fillRect(rx, ry, rw, rh);
-            g.setColor(new Color(100, 200, 255, 180));
-            g.setStroke(new BasicStroke(1.5f));
-            g.drawRect(rx, ry, rw, rh);
-            g.setStroke(new BasicStroke(1));
+        // Rysuj jednostki ponad kafelkami.
+        // Kopiujemy listę przed iteracją żeby uniknąć ConcurrentModificationException –
+        // wątek gry może modyfikować listę jednocześnie gdy EDT ją renderuje.
+        for (Unit jednostka : new java.util.ArrayList<>(stan.getUnits())) {
+            if (!jednostka.isAlive()) continue;
+            if (!kamera.isVisible(jednostka.getTileX(), jednostka.getTileY())) continue;
+            int ekranX = kamera.tileToScreenX(jednostka.getX());
+            int ekranY = kamera.tileToScreenY(jednostka.getY());
+            rysujJednostke(grafika, jednostka, ekranX, ekranY, jednostka == zaznaczona, rozmiarKafelka);
+        }
+
+        // Prostokąt przeciągania zaznaczenia
+        if (czyPrzeciagamy) {
+            int px1 = kamera.tileToScreenX(zaznaczX1);
+            int py1 = kamera.tileToScreenY(zaznaczY1);
+            int px2 = kamera.tileToScreenX(zaznaczX2 + 1);
+            int py2 = kamera.tileToScreenY(zaznaczY2 + 1);
+            int rx = Math.min(px1, px2), ry = Math.min(py1, py2);
+            int rw = Math.abs(px2 - px1), rh = Math.abs(py2 - py1);
+            grafika.setColor(new Color(100, 200, 255, 40));
+            grafika.fillRect(rx, ry, rw, rh);
+            grafika.setColor(new Color(100, 200, 255, 180));
+            grafika.setStroke(new BasicStroke(1.5f));
+            grafika.drawRect(rx, ry, rw, rh);
+            grafika.setStroke(new BasicStroke(1));
         }
     }
 
-    private void drawTile(Graphics2D g, Tile tile, int tx, int ty,
-                          int sx, int sy, int T, GameState state, Camera cam) {
-        TileType type = TileType.get(tile.getTypeId());
+    // -------------------------------------------------------------------------
+    // Rysowanie kafelka
+    // -------------------------------------------------------------------------
 
-        g.setColor(type.color);
-        g.fillRect(sx, sy, T, T);
+    private void rysujKafelek(Graphics2D grafika, Tile kafelek, int tx, int ty,
+                               int ekranX, int ekranY, int rozmiar,
+                               GameState stan, Camera kamera) {
+        TileType typ = TileType.get(kafelek.getTypeId());
 
-        // Podświetlenie oznaczonych do zebrania
-        if (tile.isMarkedForHarvest() && type.isResource) {
-            g.setColor(new Color(255,255,0,55));
-            g.fillRect(sx, sy, T, T);
-            float prog = (float)tile.getHarvestProgress() / Math.max(1, type.harvestTicks);
-            g.setColor(new Color(255,200,0,180));
-            g.fillRect(sx, sy+T-3, (int)(T*prog), 3);
+        // Tło: obrazek lub kolor
+        BufferedImage obrazek = ImageCache.get().getObrazek(typ.nazwaObrazka, rozmiar);
+        if (obrazek != null) {
+            grafika.drawImage(obrazek, ekranX, ekranY, null);
+        } else {
+            grafika.setColor(typ.color);
+            grafika.fillRect(ekranX, ekranY, rozmiar, rozmiar);
         }
 
-        // Podświetlenie oznaczonych do budowy
-        if (tile.isMarkedForBuild()) {
-            g.setColor(new Color(100,180,255,70));
-            g.fillRect(sx, sy, T, T);
-            g.setColor(new Color(100,180,255,180));
-            g.setStroke(new BasicStroke(1f, BasicStroke.CAP_SQUARE, BasicStroke.JOIN_MITER,
-                    1, new float[]{3,2}, 0));
-            g.drawRect(sx, sy, T-1, T-1);
-            g.setStroke(new BasicStroke(1));
+        // Podświetlenie: oznaczony do zbierania
+        if (kafelek.isMarkedForHarvest() && typ.isResource) {
+            grafika.setColor(new Color(255, 255, 0, 55));
+            grafika.fillRect(ekranX, ekranY, rozmiar, rozmiar);
+            // Pasek postępu zbierania
+            float postep = (float) kafelek.getHarvestProgress() / Math.max(1, typ.harvestTicks);
+            grafika.setColor(new Color(255, 200, 0, 200));
+            grafika.fillRect(ekranX, ekranY + rozmiar - 3, (int)(rozmiar * postep), 3);
         }
 
-        // Ikona kafelka
-        if (T >= 10) drawTileIcon(g, type.id, sx, sy, T);
+        // Podświetlenie: oznaczony do budowy (przerywana linia)
+        if (kafelek.isMarkedForBuild()) {
+            grafika.setColor(new Color(100, 180, 255, 70));
+            grafika.fillRect(ekranX, ekranY, rozmiar, rozmiar);
+            grafika.setColor(new Color(100, 180, 255, 200));
+            grafika.setStroke(new BasicStroke(1f, BasicStroke.CAP_SQUARE,
+                    BasicStroke.JOIN_MITER, 1, new float[]{3, 2}, 0));
+            grafika.drawRect(ekranX, ekranY, rozmiar - 1, rozmiar - 1);
+            grafika.setStroke(new BasicStroke(1));
+        }
 
-        // Pokój – kolorowe tło
-        if (tile.getRoomId() >= 0) {
-            Room room = state.getRoomSystem().getRoomById(tile.getRoomId());
-            if (room != null) {
-                Color tc = room.getDef().tintColor;
-                g.setColor(new Color(tc.getRed(), tc.getGreen(), tc.getBlue(), 30));
-                g.fillRect(sx+1, sy+1, T-2, T-2);
+        // Ikona tekstowa (tylko gdy brak obrazka i kafelek wystarczająco duży)
+        if (obrazek == null && rozmiar >= 10) {
+            rysujIkoneKafelka(grafika, typ.id, ekranX, ekranY, rozmiar);
+        }
+
+        // Tło pokoju – kolorowy odcień
+        if (kafelek.getRoomId() >= 0) {
+            Room pokoj = stan.getRoomSystem().getRoomById(kafelek.getRoomId());
+            if (pokoj != null) {
+                Color tint = pokoj.getDef().tintColor;
+                grafika.setColor(new Color(tint.getRed(), tint.getGreen(), tint.getBlue(), 30));
+                grafika.fillRect(ekranX + 1, ekranY + 1, rozmiar - 2, rozmiar - 2);
             }
         }
 
         // Siatka
-        if (T >= 8) {
-            g.setColor(new Color(0,0,0,35));
-            g.drawRect(sx, sy, T, T);
+        if (rozmiar >= 8) {
+            grafika.setColor(new Color(0, 0, 0, 35));
+            grafika.drawRect(ekranX, ekranY, rozmiar, rozmiar);
         }
     }
 
-    private void drawTileIcon(Graphics2D g, String id, int sx, int sy, int T) {
-        String icon = switch (id) {
+    private void rysujIkoneKafelka(Graphics2D grafika, String id, int x, int y, int rozmiar) {
+        String ikona = switch (id) {
             case TileType.FOREST         -> "T";
             case TileType.MOUNTAIN       -> "^";
             case TileType.WATER          -> "~";
@@ -125,44 +168,76 @@ public class MapRenderer {
             case TileType.WATCHTOWER     -> "WT";
             default -> "";
         };
-        if (icon.isEmpty()) return;
-        int fs = Math.max(7, T/2);
-        g.setFont(new Font("Monospaced", Font.BOLD, fs));
-        FontMetrics fm = g.getFontMetrics();
-        g.setColor(new Color(0,0,0,150));
-        g.drawString(icon, sx+(T-fm.stringWidth(icon))/2,
-                          sy+(T+fm.getAscent()-fm.getDescent())/2-1);
+        if (ikona.isEmpty()) return;
+        int rozmiarCzcionki = Math.max(7, rozmiar / 2);
+        grafika.setFont(new Font("Monospaced", Font.BOLD, rozmiarCzcionki));
+        FontMetrics fm = grafika.getFontMetrics();
+        grafika.setColor(new Color(0, 0, 0, 150));
+        grafika.drawString(ikona,
+                x + (rozmiar - fm.stringWidth(ikona)) / 2,
+                y + (rozmiar + fm.getAscent() - fm.getDescent()) / 2 - 1);
     }
 
-    private void drawUnit(Graphics2D g, Unit unit, int sx, int sy, boolean selected, int T) {
-        int pad = Math.max(1, T/7);
-        int size = T - pad*2;
-        int ux = sx+pad, uy = sy+pad;
+    // -------------------------------------------------------------------------
+    // Rysowanie jednostki
+    // -------------------------------------------------------------------------
 
-        g.setColor(unit.getUnitClass().color);
-        g.fillOval(ux, uy, size, size);
+    private void rysujJednostke(Graphics2D grafika, Unit jednostka,
+                                 int ekranX, int ekranY, boolean zaznaczona, int rozmiar) {
+        int odstep = Math.max(1, rozmiar / 7);
+        int rozmiarSylwetki = rozmiar - odstep * 2;
+        int ux = ekranX + odstep;
+        int uy = ekranY + odstep;
 
-        g.setColor(selected ? Color.YELLOW : unit.isPlayerOwned() ? new Color(200,230,255) : new Color(255,180,180));
-        g.setStroke(new BasicStroke(selected ? 2.5f : 1f));
-        g.drawOval(ux, uy, size, size);
-        g.setStroke(new BasicStroke(1));
+        // Sprawdź czy jest obrazek dla tej klasy
+        BufferedImage obrazek = ImageCache.get().getObrazek(
+                jednostka.getUnitClass().nazwaObrazka, rozmiarSylwetki);
 
-        if (T >= 10) {
-            int fs = Math.max(7, T-6);
-            g.setFont(new Font("Monospaced", Font.BOLD, fs));
-            g.setColor(Color.WHITE);
-            String sym = String.valueOf(unit.getUnitClass().label.charAt(0));
-            FontMetrics fm = g.getFontMetrics();
-            g.drawString(sym, ux+(size-fm.stringWidth(sym))/2,
-                              uy+(size+fm.getAscent()-fm.getDescent())/2-1);
+        if (obrazek != null) {
+            // Rysuj obrazek z zaokrąglonym tłem w kolorze gracza
+            grafika.setColor(new Color(
+                    jednostka.getUnitClass().color.getRed(),
+                    jednostka.getUnitClass().color.getGreen(),
+                    jednostka.getUnitClass().color.getBlue(), 120));
+            grafika.fillOval(ux, uy, rozmiarSylwetki, rozmiarSylwetki);
+            // Przytnij do kółka
+            Shape staryKlip = grafika.getClip();
+            grafika.setClip(new java.awt.geom.Ellipse2D.Float(ux, uy, rozmiarSylwetki, rozmiarSylwetki));
+            grafika.drawImage(obrazek, ux, uy, null);
+            grafika.setClip(staryKlip);
+        } else {
+            // Fallback: kółko z literą
+            grafika.setColor(jednostka.getUnitClass().color);
+            grafika.fillOval(ux, uy, rozmiarSylwetki, rozmiarSylwetki);
+
+            if (rozmiar >= 10) {
+                int rozmiarCzcionki = Math.max(7, rozmiar - 6);
+                grafika.setFont(new Font("Monospaced", Font.BOLD, rozmiarCzcionki));
+                grafika.setColor(Color.WHITE);
+                String litera = String.valueOf(jednostka.getUnitClass().label.charAt(0));
+                FontMetrics fm = grafika.getFontMetrics();
+                grafika.drawString(litera,
+                        ux + (rozmiarSylwetki - fm.stringWidth(litera)) / 2,
+                        uy + (rozmiarSylwetki + fm.getAscent() - fm.getDescent()) / 2 - 1);
+            }
         }
 
+        // Obramowanie (żółte = zaznaczona, białe = gracz, czerwone = wróg)
+        grafika.setColor(zaznaczona ? Color.YELLOW
+                : jednostka.isPlayerOwned() ? new Color(200, 230, 255) : new Color(255, 180, 180));
+        grafika.setStroke(new BasicStroke(zaznaczona ? 2.5f : 1f));
+        grafika.drawOval(ux, uy, rozmiarSylwetki, rozmiarSylwetki);
+        grafika.setStroke(new BasicStroke(1));
+
         // Pasek HP
-        int barW = T-2;
-        float ratio = (float)unit.getHp()/unit.getMaxHp();
-        g.setColor(new Color(40,40,40));
-        g.fillRect(sx+1, sy+T-4, barW, 3);
-        g.setColor(ratio>0.5f ? new Color(60,200,60) : ratio>0.25f ? new Color(220,180,0) : new Color(220,50,50));
-        g.fillRect(sx+1, sy+T-4, (int)(barW*ratio), 3);
+        int szerokoscPaska = rozmiar - 2;
+        float stosunekHp = (float) jednostka.getHp() / jednostka.getMaxHp();
+        grafika.setColor(new Color(40, 40, 40));
+        grafika.fillRect(ekranX + 1, ekranY + rozmiar - 4, szerokoscPaska, 3);
+        grafika.setColor(stosunekHp > 0.5f ? new Color(60, 200, 60)
+                : stosunekHp > 0.25f ? new Color(220, 180, 0)
+                : new Color(220, 50, 50));
+        grafika.fillRect(ekranX + 1, ekranY + rozmiar - 4,
+                (int)(szerokoscPaska * stosunekHp), 3);
     }
 }

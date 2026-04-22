@@ -15,8 +15,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * Boczny panel – budowanie, rekrutacja, lista jednostek.
- * Naprawiony layout: brak poziomego scrolla, stała szerokość 200px.
+ * Boczny panel – lista jednostek + dropdown budowania.
+ * Bez poziomego scrolla. Stała szerokość 210px.
  */
 public class SidePanel extends JPanel {
 
@@ -24,8 +24,8 @@ public class SidePanel extends JPanel {
     private final GameController controller;
     private final JPanel         unitList;
     private final JButton        btnPause;
+    private       Frame          ownerFrame;
 
-    // Koszty budowania ładowane z JSON
     private static Map<String, Map<String,Integer>> BUILD_COSTS;
 
     public static void initCosts() {
@@ -42,45 +42,37 @@ public class SidePanel extends JPanel {
         this.state      = state;
         this.controller = controller;
 
-        setLayout(new BorderLayout(0,4));
-        setBackground(new Color(25,25,35));
-        setPreferredSize(new Dimension(200,0));
-        setMinimumSize(new Dimension(200,0));
-        setMaximumSize(new Dimension(200,Integer.MAX_VALUE));
-        setBorder(BorderFactory.createMatteBorder(0,1,0,0,new Color(60,60,80)));
+        setLayout(new BorderLayout(0, 4));
+        setBackground(new Color(22, 22, 34));
+        setPreferredSize(new Dimension(210, 0));
+        setMinimumSize(new Dimension(210, 0));
+        setMaximumSize(new Dimension(210, Integer.MAX_VALUE));
+        setBorder(BorderFactory.createMatteBorder(0, 1, 0, 0, new Color(55, 55, 75)));
 
-        // --- Pauza ---
-        btnPause = new JButton("Pauza [SPACE]");
-        styleBtn(btnPause, new Color(50,50,80));
+        // TOP: pauza + przycisk budowania
+        JPanel top = new JPanel(new GridLayout(2, 1, 0, 3));
+        top.setBackground(new Color(18, 18, 28));
+        top.setBorder(new EmptyBorder(4, 4, 4, 4));
+
+        btnPause = sideBtn("Pauza [SPACE]", new Color(50, 50, 80));
         btnPause.addActionListener(e -> state.setPaused(!state.isPaused()));
-        JPanel topBar = new JPanel(new BorderLayout());
-        topBar.setBackground(new Color(20,20,30));
-        topBar.setBorder(new EmptyBorder(4,4,4,4));
-        topBar.add(btnPause);
-        add(topBar, BorderLayout.NORTH);
 
-        // --- Środek: scrollowalny ---
+        JButton btnBuild = sideBtn("Budowanie ▾", new Color(35, 55, 80));
+        btnBuild.addActionListener(e -> showBuildMenu(btnBuild));
+
+        top.add(btnPause);
+        top.add(btnBuild);
+        add(top, BorderLayout.NORTH);
+
+        // CENTER: lista jednostek
         JPanel center = new JPanel();
         center.setLayout(new BoxLayout(center, BoxLayout.Y_AXIS));
-        center.setBackground(new Color(25,25,35));
+        center.setBackground(new Color(22, 22, 34));
 
-        // Budowanie
-        center.add(sectionLabel("BUDOWANIE"));
-        for (ConfigLoader.BuildingCfg b : GameConfig.get().buildings()) {
-            center.add(makeBuildBtn(b.tileId(), b.label(), b.cost()));
-        }
-
-        // Rekrutacja
-        center.add(sectionLabel("REKRUTACJA"));
-        for (ConfigLoader.RecruitCfg r : GameConfig.get().recruit()) {
-            center.add(makeRecruitBtn(r.unitId(), r.cost()));
-        }
-
-        // Lista jednostek
         center.add(sectionLabel("JEDNOSTKI"));
         unitList = new JPanel();
         unitList.setLayout(new BoxLayout(unitList, BoxLayout.Y_AXIS));
-        unitList.setBackground(new Color(25,25,35));
+        unitList.setBackground(new Color(22, 22, 34));
         unitList.setAlignmentX(LEFT_ALIGNMENT);
         center.add(unitList);
 
@@ -89,63 +81,177 @@ public class SidePanel extends JPanel {
                 JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         scroll.setBorder(null);
         scroll.getVerticalScrollBar().setUnitIncrement(16);
-        scroll.setBackground(new Color(25,25,35));
         add(scroll, BorderLayout.CENTER);
 
-        // --- Dół: skróty ---
+        // BOTTOM: skróty
         JPanel hotkeys = new JPanel();
         hotkeys.setLayout(new BoxLayout(hotkeys, BoxLayout.Y_AXIS));
-        hotkeys.setBackground(new Color(18,18,28));
-        hotkeys.setBorder(new EmptyBorder(4,6,4,4));
-        String[] hks = {"WSAD: kamera","Scroll: zoom","SPACE: pauza",
-                        "LPM: wybierz/buduj","Drag LPM: obszar","PPM: ruch/cofnij","ESC: anuluj"};
-        for (String h : hks) {
+        hotkeys.setBackground(new Color(16, 16, 26));
+        hotkeys.setBorder(new EmptyBorder(4, 6, 4, 4));
+        for (String h : new String[]{
+                "WSAD: kamera", "Scroll: zoom",
+                "Klik Scroll: przewijanie",
+                "SPACE: pauza", "LPM: zaznacz/buduj",
+                "Drag: obszar", "PPM: ruch/cofnij",
+                "2x LPM: zarządzaj jedn.", "ESC: anuluj"}) {
             JLabel l = new JLabel(h);
-            l.setFont(new Font("SansSerif",Font.PLAIN,9));
-            l.setForeground(new Color(140,140,160));
+            l.setFont(new Font("SansSerif", Font.PLAIN, 9));
+            l.setForeground(new Color(120, 120, 145));
             hotkeys.add(l);
         }
         add(hotkeys, BorderLayout.SOUTH);
     }
 
-    private JButton makeBuildBtn(String tileId, String label, Map<String,Integer> cost) {
-        String costStr = costToString(cost);
-        JButton btn = new JButton("<html><b>"+label+"</b><br><small style='color:#aaa'>"+costStr+"</small></html>");
-        styleBtn(btn, new Color(38,38,58));
-        btn.addActionListener(e -> {
-            if (state.canAfford(cost)) state.setBuildMode(tileId);
-            else state.log("Za mało surowców: "+label);
+    // -------------------------------------------------------------------------
+    // Menu budowania (popup)
+    // -------------------------------------------------------------------------
+
+    private void showBuildMenu(JComponent anchor) {
+        JPopupMenu menu = new JPopupMenu();
+        menu.setBackground(new Color(28, 28, 45));
+
+        // Kategorie
+        String[] catLabels = {"Konstrukcje", "Meble", "Sprzęt"};
+        String[][] catTiles = {
+            {TileType.WALL, TileType.FLOOR, TileType.DOOR, TileType.GATE},
+            {TileType.BED, TileType.TABLE, TileType.CHAIR, TileType.CAMPFIRE, TileType.STOCKPILE},
+            {TileType.ANVIL, TileType.FORGE, TileType.BOOKSHELF,
+             TileType.TRAINING_DUMMY, TileType.THRONE, TileType.WATCHTOWER}
+        };
+
+        for (int ci = 0; ci < catLabels.length; ci++) {
+            if (ci > 0) menu.addSeparator();
+            JLabel catLbl = new JLabel("  " + catLabels[ci]);
+            catLbl.setFont(new Font("SansSerif", Font.BOLD, 10));
+            catLbl.setForeground(new Color(140, 140, 200));
+            catLbl.setBorder(new EmptyBorder(2, 4, 2, 4));
+            menu.add(catLbl);
+
+            for (String tileId : catTiles[ci]) {
+                if (!BUILD_COSTS.containsKey(tileId)) continue;
+                TileType tt = TileType.get(tileId);
+                Map<String,Integer> cost = BUILD_COSTS.get(tileId);
+                String costStr = costToString(cost);
+                JMenuItem item = new JMenuItem(tt.label + "  [" + costStr + "]");
+                item.setFont(new Font("SansSerif", Font.PLAIN, 11));
+                item.setForeground(Color.WHITE);
+                item.setBackground(new Color(28, 28, 45));
+                item.setOpaque(true);
+                item.addActionListener(e -> {
+                    if (state.canAfford(cost)) state.setBuildMode(tileId);
+                    else state.log("Za mało surowców: " + tt.label);
+                });
+                menu.add(item);
+            }
+        }
+        menu.show(anchor, 0, anchor.getHeight());
+    }
+
+    // -------------------------------------------------------------------------
+    // Odświeżanie listy jednostek
+    // -------------------------------------------------------------------------
+
+    public void update() {
+        btnPause.setText(state.isPaused() ? "Wznów [SPACE]" : "Pauza [SPACE]");
+
+        unitList.removeAll();
+        for (Unit u : state.getPlayerUnits()) {
+            unitList.add(makeUnitEntry(u));
+        }
+        unitList.revalidate();
+        unitList.repaint();
+    }
+
+    private JPanel makeUnitEntry(Unit u) {
+        JPanel entry = new JPanel(new BorderLayout(3, 0));
+        entry.setBackground(u == state.getSelectedUnit()
+                ? new Color(45, 65, 120) : new Color(28, 28, 45));
+        entry.setMaximumSize(new Dimension(Integer.MAX_VALUE, 52));
+        entry.setAlignmentX(LEFT_ALIGNMENT);
+        entry.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(45, 45, 65)));
+
+        // Kolorowy pasek po lewej (kolor klasy)
+        JPanel bar = new JPanel();
+        bar.setPreferredSize(new Dimension(4, 0));
+        bar.setBackground(u.getUnitClass().color);
+        entry.add(bar, BorderLayout.WEST);
+
+        // Tekst
+        JPanel info = new JPanel(new GridLayout(3, 1, 0, 0));
+        info.setOpaque(false);
+        info.setBorder(new EmptyBorder(3, 5, 3, 3));
+
+        JLabel nameLabel = new JLabel(u.getName() + "  " + u.getUnitClass().label);
+        nameLabel.setFont(new Font("SansSerif", Font.BOLD, 11));
+        nameLabel.setForeground(u.getUnitClass().color);
+
+        // HP bar miniaturka
+        JProgressBar hp = new JProgressBar(0, u.getMaxHp());
+        hp.setValue(u.getHp());
+        float ratio = (float) u.getHp() / u.getMaxHp();
+        hp.setForeground(ratio > 0.5f ? new Color(60,200,60) : ratio > 0.25f ? new Color(220,180,0) : new Color(220,50,50));
+        hp.setBackground(new Color(40,40,55));
+        hp.setBorderPainted(false);
+        hp.setPreferredSize(new Dimension(0, 5));
+
+        JLabel stateLabel = new JLabel(u.getState().name().toLowerCase()
+                + (u.isReadyToPromote() ? "  ★ AWANS!" : ""));
+        stateLabel.setFont(new Font("SansSerif", Font.PLAIN, 9));
+        stateLabel.setForeground(u.isReadyToPromote()
+                ? new Color(255, 210, 30) : new Color(140, 140, 160));
+
+        info.add(nameLabel);
+        info.add(hp);
+        info.add(stateLabel);
+        entry.add(info, BorderLayout.CENTER);
+
+        // Kliknięcie = zaznacz; podwójne kliknięcie = otwórz okno
+        entry.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override public void mouseClicked(java.awt.event.MouseEvent e) {
+                state.setSelectedUnit(u);
+                controller.centerCameraOn(u);
+                if (e.getClickCount() >= 2) openUnitWindow(u);
+            }
+            @Override public void mouseEntered(java.awt.event.MouseEvent e) {
+                entry.setBackground(new Color(40, 60, 110));
+            }
+            @Override public void mouseExited(java.awt.event.MouseEvent e) {
+                entry.setBackground(u == state.getSelectedUnit()
+                        ? new Color(45, 65, 120) : new Color(28, 28, 45));
+            }
         });
-        return btn;
+
+        return entry;
     }
 
-    private JButton makeRecruitBtn(String unitId, Map<String,Integer> cost) {
-        String label    = model.entity.UnitClass.get(unitId).label;
-        String costStr  = costToString(cost);
-        JButton btn = new JButton("<html><b>"+label+"</b><br><small style='color:#aaa'>"+costStr+"</small></html>");
-        styleBtn(btn, new Color(28,45,68));
-        btn.addActionListener(e -> controller.recruit(unitId, cost));
-        return btn;
+    private void openUnitWindow(Unit u) {
+        if (ownerFrame == null)
+            ownerFrame = (Frame) SwingUtilities.getWindowAncestor(this);
+        new UnitInfoWindow(ownerFrame, u, controller);
     }
 
-    private void styleBtn(JButton btn, Color bg) {
-        btn.setBackground(bg);
-        btn.setForeground(Color.WHITE);
-        btn.setFont(new Font("SansSerif",Font.PLAIN,11));
-        btn.setFocusPainted(false);
-        btn.setBorderPainted(false);
-        btn.setOpaque(true);
-        btn.setHorizontalAlignment(SwingConstants.LEFT);
-        btn.setMargin(new Insets(4,6,4,6));
-        btn.setMaximumSize(new Dimension(Integer.MAX_VALUE, btn.getPreferredSize().height+4));
-        btn.setAlignmentX(LEFT_ALIGNMENT);
+    // -------------------------------------------------------------------------
+    // Helpers
+    // -------------------------------------------------------------------------
+
+    private JButton sideBtn(String text, Color bg) {
+        JButton b = new JButton(text);
+        b.setBackground(bg);
+        b.setForeground(Color.WHITE);
+        b.setFont(new Font("SansSerif", Font.BOLD, 11));
+        b.setFocusPainted(false);
+        b.setBorderPainted(false);
+        b.setOpaque(true);
+        b.setMaximumSize(new Dimension(Integer.MAX_VALUE, 28));
+        b.setAlignmentX(LEFT_ALIGNMENT);
+        return b;
     }
 
     private JLabel sectionLabel(String text) {
         JLabel l = new JLabel(text);
-        l.setFont(new Font("SansSerif",Font.BOLD,11));
-        l.setForeground(new Color(140,140,200));
-        l.setBorder(new EmptyBorder(8,4,2,4));
+        l.setFont(new Font("SansSerif", Font.BOLD, 11));
+        l.setForeground(new Color(140, 140, 200));
+        l.setBorder(new EmptyBorder(6, 4, 2, 4));
         l.setAlignmentX(LEFT_ALIGNMENT);
         l.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
         return l;
@@ -153,41 +259,7 @@ public class SidePanel extends JPanel {
 
     private String costToString(Map<String,Integer> cost) {
         StringBuilder sb = new StringBuilder();
-        cost.forEach((k,v) -> {
-            if (sb.length()>0) sb.append(" ");
-            sb.append(v).append(" ").append(k);
-        });
+        cost.forEach((k,v) -> { if (sb.length()>0) sb.append(" "); sb.append(v).append(k.charAt(0)); });
         return sb.toString();
-    }
-
-    public void update() {
-        btnPause.setText(state.isPaused() ? "Wznów [SPACE]" : "Pauza [SPACE]");
-
-        unitList.removeAll();
-        for (Unit u : state.getPlayerUnits()) {
-            JButton btn = new JButton(
-                "<html><b>"+u.getUnitClass().label+"</b> #"+u.getId()+
-                "<br><small>HP:"+u.getHp()+"/"+u.getMaxHp()+" "+u.getState()+"</small></html>");
-            styleBtn(btn, u == state.getSelectedUnit() ? new Color(50,70,130) : new Color(32,32,52));
-            btn.addActionListener(e -> { state.setSelectedUnit(u); controller.centerCameraOn(u); });
-
-            // Przycisk awansu
-            if (u.canPromote()) {
-                JButton promo = new JButton("Awansuj!");
-                styleBtn(promo, new Color(120,90,0));
-                promo.addActionListener(e -> controller.promoteUnit(u));
-                JPanel row = new JPanel(new BorderLayout(2,0));
-                row.setBackground(new Color(32,32,52));
-                row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 44));
-                row.setAlignmentX(LEFT_ALIGNMENT);
-                row.add(btn, BorderLayout.CENTER);
-                row.add(promo, BorderLayout.EAST);
-                unitList.add(row);
-            } else {
-                unitList.add(btn);
-            }
-        }
-        unitList.revalidate();
-        unitList.repaint();
     }
 }

@@ -52,6 +52,8 @@ public class TileType {
     public final int     harvestYieldMin;
     public final int     harvestYieldMax;
     public final String  harvestRemnantId;
+    /** Opcjonalna ścieżka do obrazka, np. "tiles/trawa.png". Null = rysuj kolor. */
+    public final String  nazwaObrazka;
 
     private TileType(ConfigLoader.TileCfg cfg) {
         this.id               = cfg.id();
@@ -66,6 +68,7 @@ public class TileType {
         this.harvestYieldMin  = cfg.harvestYieldMin();
         this.harvestYieldMax  = cfg.harvestYieldMax();
         this.harvestRemnantId = cfg.harvestRemnant();
+        this.nazwaObrazka    = cfg.image();
     }
 
     private static final Map<String, TileType> REGISTRY = new LinkedHashMap<>();

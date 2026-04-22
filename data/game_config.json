@@ -18,41 +18,47 @@
     },
     "fortressClearRadius": 8
   },
-
   "startingResources": {
-    "WOOD": 50,
-    "STONE": 30,
+    "WOOD": 100,
+    "STONE": 60,
     "IRON": 0,
-    "FOOD": 20,
+    "FOOD": 40,
     "GOLD": 0
   },
-
   "startingUnits": [
-    { "unitId": "WORKER", "offsetX": -2, "offsetY": 0 },
-    { "unitId": "WORKER", "offsetX": -3, "offsetY": 0 },
-    { "unitId": "GUARD",  "offsetX": 0,  "offsetY": -2 }
+    {
+      "unitId": "GENERIC",
+      "offsetX": -2,
+      "offsetY": 0
+    },
+    {
+      "unitId": "GENERIC",
+      "offsetX": -3,
+      "offsetY": 0
+    },
+    {
+      "unitId": "GENERIC",
+      "offsetX": 0,
+      "offsetY": -2
+    }
   ],
-
   "limits": {
-    "startingUnitCap": 6,
-    "startingStorageCapacity": 200
+    "startingUnitCap": 10,
+    "startingStorageCapacity": 500
   },
-
   "waves": {
-    "firstWaveDelayTicks": 3600,
-    "warnBeforeTicks": 600,
-    "betweenWavesTicks": 3600,
+    "firstWaveDelayTicks": 10800,
+    "warnBeforeTicks": 1200,
+    "betweenWavesTicks": 7200,
     "baseEnemyCount": 3,
     "enemyCountPerWave": 2,
     "chiefAppearsFromWave": 2
   },
-
   "economy": {
     "traderGoldPerTickBase": 5,
     "traderGoldPerTickRandom": 5,
     "tradeIntervalTicks": 300
   },
-
   "combat": {
     "attackCooldownTicks": 45,
     "fightDetectionRange": 20,
@@ -61,19 +67,25 @@
     "xpPerKill": 20,
     "xpPerHarvest": 10
   },
-
   "ai": {
     "workerSearchRadius": 40,
     "guardPatrolRadius": 4,
     "buildTicksRequired": 60,
     "healIntervalTicks": 30
   },
-
   "camera": {
     "tileSize": 14,
     "minTileSize": 6,
     "maxTileSize": 32,
     "scrollSpeed": 20.0,
     "zoomStep": 2
+  },
+  "genericUnit": {
+    "spawnIntervalTicks": 5400,
+    "maxGenericWaiting": 3,
+    "xpPerHarvestTick": 1,
+    "xpPerBuildTick": 1,
+    "xpPerAttackHit": 8,
+    "xpPerKill": 25
   }
 }

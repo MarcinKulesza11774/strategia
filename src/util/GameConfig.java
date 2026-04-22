@@ -14,7 +14,7 @@ public class GameConfig {
 
     private static GameConfig instance;
 
-    private final ConfigLoader loader;
+    public final ConfigLoader loader;
 
     private GameConfig() {
         loader = new ConfigLoader();
@@ -24,6 +24,8 @@ public class GameConfig {
     public static void init() {
         instance = new GameConfig();
     }
+
+    public ConfigLoader loader() { return loader; }
 
     public static GameConfig get() {
         if (instance == null) throw new IllegalStateException("GameConfig.init() nie został wywołany!");

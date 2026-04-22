@@ -62,38 +62,64 @@ public class HudRenderer {
         }
     }
 
+    /**
+     * Rysuje panel z informacjami o zaznaczonej jednostce (lewy dół ekranu).
+     * Pokazuje: imię, klasę, HP, statystyki VIT/STR/PRE/CHA, XP, stan, pokój.
+     */
     private static void drawUnitInfo(Graphics2D g, GameState state, int H) {
         Unit sel = state.getSelectedUnit();
-        int bx=8,by=H-175,bw=225,bh=167;
-        g.setColor(BG); g.fillRoundRect(bx,by,bw,bh,8,8);
-        g.setColor(BORDER); g.drawRoundRect(bx,by,bw,bh,8,8);
+        int bx = 8, by = H - 200, bw = 230, bh = 192;
+        g.setColor(BG);     g.fillRoundRect(bx, by, bw, bh, 8, 8);
+        g.setColor(BORDER); g.drawRoundRect(bx, by, bw, bh, 8, 8);
 
+        // Imię i klasa
         g.setFont(FLG); g.setColor(sel.getUnitClass().color);
-        g.drawString(sel.getUnitClass().label+" #"+sel.getId(), bx+8, by+20);
+        g.drawString(sel.getName(), bx + 8, by + 20);
+        g.setFont(FSM); g.setColor(new Color(180, 180, 200));
+        g.drawString(sel.getUnitClass().label, bx + 8, by + 34);
 
-        int y=by+36; g.setFont(FSM); g.setColor(Color.WHITE);
-        g.drawString("HP: "+sel.getHp()+"/"+sel.getMaxHp(), bx+8, y); y+=14;
-        float ratio=(float)sel.getHp()/sel.getMaxHp();
-        int bw2=bw-16;
-        g.setColor(new Color(50,50,50)); g.fillRect(bx+8,y,bw2,6);
-        g.setColor(ratio>0.5f?new Color(60,200,60):ratio>0.25f?new Color(220,180,0):new Color(220,50,50));
-        g.fillRect(bx+8,y,(int)(bw2*ratio),6); y+=10;
+        int y = by + 50;
+        g.setFont(FSM); g.setColor(Color.WHITE);
 
-        g.setColor(new Color(200,200,200));
-        g.drawString("XP: "+sel.getXp()+"/"+sel.xpForNextTier(), bx+8, y); y+=14;
-        g.drawString("ATK:"+sel.getEffectiveAttack()+"  DEF:"+sel.getEffectiveDefense(), bx+8, y); y+=14;
-        g.drawString("Stan: "+sel.getState(), bx+8, y); y+=14;
+        // Pasek HP
+        g.drawString("HP: " + sel.getHp() + "/" + sel.getMaxHp(), bx + 8, y); y += 13;
+        float stosunekHp = (float) sel.getHp() / sel.getMaxHp();
+        int szerokoscPaska = bw - 16;
+        g.setColor(new Color(50, 50, 50)); g.fillRect(bx + 8, y, szerokoscPaska, 5);
+        g.setColor(stosunekHp > 0.5f ? new Color(60, 200, 60)
+                : stosunekHp > 0.25f ? new Color(220, 180, 0) : new Color(220, 50, 50));
+        g.fillRect(bx + 8, y, (int)(szerokoscPaska * stosunekHp), 5); y += 10;
+
+        // Statystyki VIT/STR/PRE/CHA w jednej linii
+        g.setColor(new Color(200, 200, 200));
+        g.drawString(String.format("VIT:%2d  STR:%2d  PRE:%2d  CHA:%2d",
+                sel.getVit(), sel.getStr(), sel.getPre(), sel.getCha()), bx + 8, y); y += 14;
+
+        // XP – pasek
+        int xp = sel.getXp(), xpMax = sel.xpForNextTier();
+        boolean maxXp = xpMax >= 999999;
+        g.drawString("XP: " + (maxXp ? "MAX" : xp + "/" + xpMax), bx + 8, y); y += 13;
+        if (!maxXp) {
+            g.setColor(new Color(50, 50, 50)); g.fillRect(bx + 8, y, szerokoscPaska, 5);
+            g.setColor(new Color(100, 180, 255));
+            g.fillRect(bx + 8, y, (int)(szerokoscPaska * Math.min(1f, (float) xp / xpMax)), 5);
+        }
+        y += 10;
+
+        // Stan i pokój
+        g.setColor(new Color(200, 200, 200));
+        g.drawString("Stan: " + sel.getState().name().toLowerCase(), bx + 8, y); y += 14;
 
         Room room = state.getRoomSystem().getRoomAt(sel.getTileX(), sel.getTileY());
-        if (room!=null) {
-            g.setColor(new Color(180,220,255));
-            g.drawString("Pokój: "+room.getDef().label, bx+8, y); y+=14;
-            g.setColor(new Color(150,200,150));
-            g.drawString("Buffy: SPD+"+room.getTotalSpeedBuff()+" ATK+"+room.getTotalAttackBuff()+" DEF+"+room.getTotalDefenseBuff(), bx+8, y); y+=14;
+        if (room != null) {
+            g.setColor(new Color(180, 220, 255));
+            g.drawString("Pokój: " + room.getDef().label, bx + 8, y); y += 14;
         }
-        if (sel.canPromote()) {
-            g.setColor(new Color(255,210,30)); g.setFont(FMD);
-            g.drawString(">>> Gotowy do awansu! <<<", bx+8, by+bh-10);
+
+        // Podpowiedź o awansie
+        if (sel.isReadyToPromote()) {
+            g.setColor(new Color(255, 210, 30)); g.setFont(FMD);
+            g.drawString("★ Gotowy do awansu! (2x klik)", bx + 8, by + bh - 10);
         }
     }
 

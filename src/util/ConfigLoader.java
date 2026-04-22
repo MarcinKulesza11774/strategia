@@ -25,7 +25,7 @@ public class ConfigLoader {
         String id, String label, Color color,
         boolean passable, boolean isWall, boolean isFloor, boolean isResource,
         String resourceType, int harvestTicks, int harvestYieldMin, int harvestYieldMax,
-        String harvestRemnant
+        String harvestRemnant, String image
     ) {}
 
     public record UnitCfg(
@@ -56,16 +56,20 @@ public class ConfigLoader {
     public final Map<String, RoomCfg>     rooms     = new LinkedHashMap<>();
     public final List<BuildingCfg>        buildings = new ArrayList<>();
     public final List<RecruitCfg>         recruit   = new ArrayList<>();
-    public       Map<String, Object>      gameConfig;
+    public Map<String, Object> gameConfig;
 
     // -------------------------------------------------------------------------
     // Ładowanie
     // -------------------------------------------------------------------------
 
+    /**
+     * Ładuje wszystkie pliki konfiguracyjne z folderu data/.
+     * Uwaga: units.json jest pomijany tutaj – UnitClass ładuje go samodzielnie,
+     * ponieważ ma inną strukturę (klucz "classes" zamiast "units").
+     */
     public void loadAll() {
         try {
             parseTiles(readFile("tiles.json"));
-            parseUnits(readFile("units.json"));
             parseRooms(readFile("rooms.json"));
             parseBuildings(readFile("buildings.json"));
             parseRecruitment(readFile("recruitment.json"));
@@ -96,7 +100,8 @@ public class ConfigLoader {
                 JsonParser.getInt(m, "harvestTicks", 0),
                 JsonParser.getInt(m, "harvestYieldMin", 5),
                 JsonParser.getInt(m, "harvestYieldMax", 12),
-                JsonParser.getString(m, "harvestRemnant", "GRASS")
+                JsonParser.getString(m, "harvestRemnant", "GRASS"),
+                JsonParser.getString(m, "image", null)
             ));
         }
     }

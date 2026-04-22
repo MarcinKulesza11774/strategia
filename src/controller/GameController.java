@@ -3,9 +3,8 @@ package controller;
 import ai.UnitAI;
 import model.GameState;
 import model.entity.Unit;
+import model.entity.UnitSpawner;
 import model.world.TileType;
-import model.world.WorldMap;
-import util.GameConfig;
 import view.Camera;
 import view.GameWindow;
 import view.SidePanel;
@@ -15,189 +14,274 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Kontroler – obsługuje input, koordynuje tick logiki i AI.
+ * Kontroler gry – łączy widok z modelem.
+ *
+ * Obsługuje kliknięcia i przeciągnięcia myszy, wydaje rozkazy jednostkom,
+ * zarządza trybem budowania i trybem oczekiwania na obszar rozkazu.
  */
 public class GameController {
 
-    private GameState  state;
-    private GameWindow window;
-    private UnitAI     unitAI;
-    private final Timer sideTimer;
+    private GameState  stan;
+    private GameWindow okno;
+    private UnitAI     ai;
+    private UnitSpawner spawner;
+
+    /** Jednostka czekająca na zaznaczenie obszaru dla swojego rozkazu. */
+    private Unit   jednostkaOczekujacaNaObszar = null;
+    /** Rozkaz który zostanie przypisany po zaznaczeniu obszaru. */
+    private Unit.Rozkaz rozkazOczekujacy = null;
+
+    private final Timer odswiezanieBocznegoPanel;
 
     public GameController() {
-        sideTimer = new Timer(200, e -> { if (window != null) window.getSidePanel().update(); });
+        odswiezanieBocznegoPanel = new Timer(200, e -> {
+            if (okno != null) okno.getSidePanel().update();
+        });
     }
 
     public void start() {
-        state  = new GameState();
-        unitAI = new UnitAI(state);
-        window = new GameWindow(state, this);
-        sideTimer.start();
-        window.getGamePanel().startLoop();
-        window.getGamePanel().requestFocusInWindow();
+        stan    = new GameState();
+        ai      = new UnitAI(stan);
+        spawner = new UnitSpawner();
+        okno    = new GameWindow(stan, this);
+        odswiezanieBocznegoPanel.start();
+        okno.getGamePanel().startLoop();
+        okno.getGamePanel().requestFocusInWindow();
     }
 
-    public void newGame() {
-        window.getGamePanel().stopLoop();
-        sideTimer.stop();
-        state  = new GameState();
-        unitAI = new UnitAI(state);
-        window.dispose();
-        window = new GameWindow(state, this);
-        sideTimer.start();
-        window.getGamePanel().startLoop();
+    public void nowaGra() {
+        okno.getGamePanel().stopLoop();
+        odswiezanieBocznegoPanel.stop();
+        stan    = new GameState();
+        ai      = new UnitAI(stan);
+        spawner = new UnitSpawner();
+        okno.dispose();
+        okno    = new GameWindow(stan, this);
+        odswiezanieBocznegoPanel.start();
+        okno.getGamePanel().startLoop();
     }
 
-    // -------------------------------------------------------------------------
-    // Tick
-    // -------------------------------------------------------------------------
+    // =========================================================================
+    // Tick – wywoływany z game loop
+    // =========================================================================
 
+    /**
+     * Główny tick logiki gry, wywoływany co klatkę przez GamePanel.
+     * Kamera aktualizuje się zawsze (nawet na pauzie).
+     *
+     * @param dt  czas od ostatniej klatki w sekundach
+     */
     public void tick(double dt) {
-        if (state.isPaused()) return;
-        window.getGamePanel().getCamera().tick(dt);
-        state.tick(dt);
-        for (Unit u : List.copyOf(state.getUnits()))
-            if (u.isAlive()) unitAI.tick(u, dt);
+        if (!stan.isPaused()) {
+            stan.tick(dt);
+            spawner.tick(stan);
+            // Kopiujemy listę żeby uniknąć ConcurrentModificationException
+            for (Unit jednostka : List.copyOf(stan.getUnits())) {
+                if (jednostka.zyje()) ai.tick(jednostka, dt);
+            }
+        }
     }
 
-    // -------------------------------------------------------------------------
-    // Klik lewy
-    // -------------------------------------------------------------------------
+    // =========================================================================
+    // Kliknięcia myszy
+    // =========================================================================
 
-    public void onLeftClick(int tx, int ty) {
-        if (!state.getMap().inBounds(tx, ty)) return;
+    /**
+     * Lewy przycisk myszy:
+     *   - w trybie budowania: postaw kafelek
+     *   - kliknięcie własnej jednostki: zaznacz
+     *   - kliknięcie wroga (gdy jest zaznaczona jednostka bojowa): rozkaz ataku
+     *   - puste pole: odznacz
+     */
+    public void onLeftClick(int kafelekX, int kafelekY) {
+        if (!stan.getMap().inBounds(kafelekX, kafelekY)) return;
 
-        String bm = state.getBuildMode();
-        if (bm != null) {
-            placeTile(tx, ty, bm);
+        String trybBudowania = stan.getBuildMode();
+        if (trybBudowania != null) {
+            postaw(kafelekX, kafelekY, trybBudowania);
             return;
         }
 
-        Unit clicked = getUnitAt(tx, ty);
-        if (clicked != null) {
-            if (clicked.isPlayerOwned()) {
-                state.setSelectedUnit(clicked);
+        Unit kliknieta = znajdzJednostkeNa(kafelekX, kafelekY);
+        if (kliknieta != null) {
+            if (kliknieta.nalezydoGracza()) {
+                stan.setSelectedUnit(kliknieta);
             } else {
-                Unit sel = state.getSelectedUnit();
-                if (sel != null && sel.getUnitClass().canFight) {
-                    sel.setTarget(clicked.getX(), clicked.getY());
-                    state.log(sel.getUnitClass().label + " idzie atakować " + clicked.getUnitClass().label);
+                // Kliknięto wroga – wyślij zaznaczoną jednostkę bojową do ataku
+                Unit zaznaczona = stan.getSelectedUnit();
+                if (zaznaczona != null && zaznaczona.getKlasa().canFight) {
+                    wydajRozkaz(zaznaczona, Unit.Rozkaz.PATROLUJ,
+                        kliknieta.getKafelekX(), kliknieta.getKafelekY(),
+                        kliknieta.getKafelekX(), kliknieta.getKafelekY());
+                    stan.log(zaznaczona.getImie() + " atakuje " + kliknieta.getImie());
                 }
             }
             return;
         }
-        state.setSelectedUnit(null);
+        stan.setSelectedUnit(null);
     }
 
-    // -------------------------------------------------------------------------
-    // Zaznaczanie obszaru
-    // -------------------------------------------------------------------------
-
     /**
-     * Wywoływane po przeciągnięciu myszą.
-     * W trybie budowania: stawia kafelki na całym obszarze.
-     * Normalnie: zaznacza wszystkie jednostki gracza w obszarze.
+     * Przeciągnięcie lewym przyciskiem (obszar zaznaczenia):
+     *   - jeśli jest tryb budowania: postaw kafelki na całym obszarze
+     *   - jeśli czekamy na obszar rozkazu: przypisz obszar do rozkazu jednostki
+     *   - normalnie: zaznacz wszystkie jednostki w obszarze
      */
     public void onAreaSelect(int x1, int y1, int x2, int y2) {
-        String bm = state.getBuildMode();
-        if (bm != null) {
-            // Buduj cały obszar
-            for (int ty = y1; ty <= y2; ty++)
-                for (int tx = x1; tx <= x2; tx++)
-                    placeTile(tx, ty, bm);
-        } else {
-            // Zaznacz wszystkie jednostki gracza w obszarze
-            List<Unit> inArea = state.getPlayerUnits().stream()
-                    .filter(u -> u.getTileX()>=x1 && u.getTileX()<=x2
-                              && u.getTileY()>=y1 && u.getTileY()<=y2)
-                    .toList();
-            if (!inArea.isEmpty()) {
-                state.setSelectedUnit(inArea.get(0)); // zaznacz pierwszą
-                if (inArea.size() > 1) state.log("Zaznaczono " + inArea.size() + " jednostek");
-            }
+        String trybBudowania = stan.getBuildMode();
+        if (trybBudowania != null) {
+            for (int y = y1; y <= y2; y++)
+                for (int x = x1; x <= x2; x++)
+                    postaw(x, y, trybBudowania);
+            return;
+        }
+
+        // Czy czekamy na obszar rozkazu?
+        if (jednostkaOczekujacaNaObszar != null && rozkazOczekujacy != null) {
+            wydajRozkaz(jednostkaOczekujacaNaObszar, rozkazOczekujacy, x1, y1, x2, y2);
+            stan.log(jednostkaOczekujacaNaObszar.getImie() + ": rozkaz "
+                + rozkazOczekujacy.name().toLowerCase()
+                + " [" + x1 + "," + y1 + " – " + x2 + "," + y2 + "]");
+            jednostkaOczekujacaNaObszar = null;
+            rozkazOczekujacy = null;
+            return;
+        }
+
+        // Zaznacz wszystkie jednostki gracza w obszarze
+        List<Unit> wObszarze = stan.getPlayerUnits().stream()
+            .filter(u -> u.getKafelekX() >= x1 && u.getKafelekX() <= x2
+                      && u.getKafelekY() >= y1 && u.getKafelekY() <= y2)
+            .toList();
+        if (!wObszarze.isEmpty()) {
+            stan.setSelectedUnit(wObszarze.get(0));
+            if (wObszarze.size() > 1)
+                stan.log("Zaznaczono " + wObszarze.size() + " jednostek");
         }
     }
 
-    // -------------------------------------------------------------------------
-    // Klik prawy
-    // -------------------------------------------------------------------------
-
-    public void onRightClick(int tx, int ty) {
-        String bm = state.getBuildMode();
-        if (bm != null) {
-            // Cofnij znacznik budowy
-            var tile = state.getMap().getTile(tx, ty);
-            if (tile != null && tile.isMarkedForBuild()) {
-                SidePanel.getCost(bm).forEach((k,v) -> state.addResource(k, v));
-                tile.clearBuildMark();
+    /**
+     * Prawy przycisk myszy:
+     *   - w trybie budowania: cofnij znacznik na tym kafelku
+     *   - normalnie: wydaj zaznaczonej jednostce rozkaz ruchu do klikniętego miejsca
+     */
+    public void onRightClick(int kafelekX, int kafelekY) {
+        String trybBudowania = stan.getBuildMode();
+        if (trybBudowania != null) {
+            var kafelek = stan.getMap().getTile(kafelekX, kafelekY);
+            if (kafelek != null && kafelek.isMarkedForBuild()) {
+                SidePanel.getCost(trybBudowania).forEach((typ, ilosc) ->
+                    stan.addResource(typ, ilosc));
+                kafelek.clearBuildMark();
             }
             return;
         }
-        Unit sel = state.getSelectedUnit();
-        if (sel != null && state.getMap().isPassable(tx, ty)) {
-            sel.setTarget(tx, ty);
-            state.log(sel.getUnitClass().label + " → ["+tx+","+ty+"]");
+
+        Unit zaznaczona = stan.getSelectedUnit();
+        if (zaznaczona != null && stan.getMap().isPassable(kafelekX, kafelekY)) {
+            // Rozkaz ruchu: patroluj w punkcie docelowym (1x1 obszar)
+            wydajRozkaz(zaznaczona, Unit.Rozkaz.PATROLUJ, kafelekX, kafelekY, kafelekX, kafelekY);
+            stan.log(zaznaczona.getImie() + " → [" + kafelekX + "," + kafelekY + "]");
         }
     }
 
-    // -------------------------------------------------------------------------
+    // =========================================================================
+    // Rozkazy
+    // =========================================================================
+
+    /**
+     * Wydaje jednostce rozkaz z obszarem.
+     *
+     * @param jednostka  jednostka która dostaje rozkaz
+     * @param rozkaz     typ rozkazu
+     * @param x1,y1      lewy górny róg obszaru (-1 jeśli brak obszaru)
+     * @param x2,y2      prawy dolny róg obszaru
+     */
+    public void wydajRozkaz(Unit jednostka, Unit.Rozkaz rozkaz,
+                             int x1, int y1, int x2, int y2) {
+        jednostka.ustawRozkaz(rozkaz, x1, y1, x2, y2);
+    }
+
+    /**
+     * Ustawia tryb oczekiwania na obszar rozkazu.
+     * Następne przeciągnięcie myszą na mapie wyznaczy obszar.
+     *
+     * @param jednostka   jednostka dla której czekamy na obszar
+     * @param rozkaz      rozkaz do przypisania po zaznaczeniu
+     */
+    public void czekajNaObszarRozkazu(Unit jednostka, Unit.Rozkaz rozkaz) {
+        jednostkaOczekujacaNaObszar = jednostka;
+        rozkazOczekujacy            = rozkaz;
+        stan.log("Zaznacz obszar rozkazu dla " + jednostka.getImie()
+            + " (" + rozkaz.name().toLowerCase() + ")...");
+    }
+
+    /** Czy aktualnie oczekujemy na zaznaczenie obszaru rozkazu. */
+    public boolean czyOczekujeNaObszar() {
+        return jednostkaOczekujacaNaObszar != null;
+    }
+
+    // =========================================================================
+    // Awans i rekrutacja
+    // =========================================================================
+
+    /**
+     * Awansuje jednostkę na wskazaną klasę docelową.
+     * Wymaga by jednostka była gotowa do awansu (gotowaNaAwans = true).
+     */
+    public void awansujJednostke(Unit jednostka, String docelowaKlasaId) {
+        if (!jednostka.gotowaNaAwans()) {
+            stan.log("Jednostka nie jest jeszcze gotowa do awansu!");
+            return;
+        }
+        String poprzedniaKlasa = jednostka.getKlasa().label;
+        jednostka.awansuj(docelowaKlasaId);
+        stan.log(jednostka.getImie() + " awansował: "
+            + poprzedniaKlasa + " → " + jednostka.getKlasa().label + "!");
+    }
+
+    // =========================================================================
     // Budowanie
-    // -------------------------------------------------------------------------
+    // =========================================================================
 
-    private void placeTile(int tx, int ty, String tileId) {
-        WorldMap map = state.getMap();
-        if (!map.inBounds(tx, ty)) return;
-        var tile = map.getTile(tx, ty);
-        if (tile.isMarkedForBuild()) return;
+    private void postaw(int kafelekX, int kafelekY, String typKafelka) {
+        if (!stan.getMap().inBounds(kafelekX, kafelekY)) return;
+        var kafelek = stan.getMap().getTile(kafelekX, kafelekY);
+        if (kafelek.isMarkedForBuild()) return;
 
-        Map<String,Integer> cost = SidePanel.getCost(tileId);
-        if (!state.canAfford(cost)) { state.log("Za mało surowców: " + TileType.get(tileId).label); return; }
-        state.spend(cost);
-        tile.markForBuild(tileId);
-    }
-
-    // -------------------------------------------------------------------------
-    // Rekrutacja i awans
-    // -------------------------------------------------------------------------
-
-    public void recruit(String unitId, Map<String,Integer> cost) {
-        if (state.playerUnitCount() >= state.getUnitCap()) {
-            state.log("Osiągnięto limit jednostek (" + state.getUnitCap() + ")!"); return;
+        Map<String, Integer> koszt = SidePanel.getCost(typKafelka);
+        if (!stan.canAfford(koszt)) {
+            stan.log("Za mało surowców: " + TileType.get(typKafelka).label);
+            return;
         }
-        if (!state.canAfford(cost)) { state.log("Za mało surowców!"); return; }
-        state.spend(cost);
-        int fx = state.getMap().fortressX, fy = state.getMap().fortressY;
-        state.spawnPlayer(unitId,
-                fx + (int)(Math.random()*4)-2,
-                fy + (int)(Math.random()*4)-2);
-        state.log("Zwerbowano: " + model.entity.UnitClass.get(unitId).label);
+        stan.spend(koszt);
+        kafelek.markForBuild(typKafelka);
     }
 
-    public void promoteUnit(Unit u) {
-        if (!u.canPromote()) return;
-        model.entity.UnitClass next = u.getUnitClass().promoteTo();
-        if (next == null) return;
-        int cost = u.getUnitClass().xpToPromote / 2; // koszt w złocie
-        if (!state.spendResource(model.world.ResourceType.GOLD, cost)) {
-            state.log("Potrzeba " + cost + " złota na awans!"); return;
-        }
-        String before = u.getUnitClass().label;
-        u.promote();
-        state.log(before + " awansował na " + u.getUnitClass().label + "!");
-    }
-
-    // -------------------------------------------------------------------------
+    // =========================================================================
     // Pomocnicze
-    // -------------------------------------------------------------------------
+    // =========================================================================
 
-    public void centerCameraOn(Unit u) {
-        Camera cam = window.getGamePanel().getCamera();
-        cam.setCam(u.getX() - 30, u.getY() - 20);
+    /** Przesuwa kamerę tak żeby jednostka była widoczna na środku ekranu. */
+    public void centerCameraOn(Unit jednostka) {
+        Camera kamera = okno.getGamePanel().getCamera();
+        kamera.setCam(jednostka.getPozycjaX() - 35, jednostka.getPozycjaY() - 22);
     }
 
-    private Unit getUnitAt(int tx, int ty) {
-        for (Unit u : state.getUnits())
-            if (u.isAlive() && u.getTileX()==tx && u.getTileY()==ty) return u;
+    private Unit znajdzJednostkeNa(int kafelekX, int kafelekY) {
+        for (Unit jednostka : stan.getUnits()) {
+            if (jednostka.zyje()
+                    && jednostka.getKafelekX() == kafelekX
+                    && jednostka.getKafelekY() == kafelekY) {
+                return jednostka;
+            }
+        }
         return null;
+    }
+
+    // Stare nazwy zachowane dla kompatybilności z GameWindow
+    public void newGame() { nowaGra(); }
+    public void promoteUnitTo(Unit u, String id) { awansujJednostke(u, id); }
+    public void recruit(String id, Map<String, Integer> koszt) {
+        stan.log("Rekrutacja wyłączona – jednostki przychodzą same jako wędrowcy.");
     }
 }
