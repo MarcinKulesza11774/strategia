@@ -1,24 +1,14 @@
-import controller.GameController;
-import model.building.RoomDef;
-import model.entity.UnitClass;
-import model.world.TileType;
-import util.GameConfig;
-import view.SidePanel;
-
 import javax.swing.SwingUtilities;
 
 /**
- * Punkt startowy.
- * Kolejność: JSON → typy kafelków → klasy jednostek → pokoje → gra
+ * Punkt startowy aplikacji – gra strategiczna turowa.
+ * Uruchamia główne okno gry w wątku obsługi zdarzeń Swing (EDT).
  */
 public class Main {
     public static void main(String[] args) {
-        GameConfig.init();
-        TileType.loadAll();
-        UnitClass.loadAll();   // teraz ładuje ze swojego własnego pliku
-        RoomDef.loadAll();
-        SidePanel.initCosts();
-
-        SwingUtilities.invokeLater(() -> new GameController().start());
+        SwingUtilities.invokeLater(() -> {
+            OknoGry oknoGry = new OknoGry();
+            oknoGry.setVisible(true);
+        });
     }
 }
