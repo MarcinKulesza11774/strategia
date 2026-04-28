@@ -3,9 +3,6 @@ import java.awt.*;
 
 /**
  * Panel boczny z informacjami o stanie gry i kontekstowymi przyciskami.
- * Zawartość sekcji "Akcje" zmienia się w zależności od zaznaczenia:
- *   – zaznaczone miasto:    przycisk szkolenia jednostki
- *   – zaznaczona jednostka: przycisk budowy miasta + (jeśli w mieście) ulepszenia
  */
 public class PanelBoczny extends JPanel {
     private final SilnikGry silnik;
@@ -15,9 +12,11 @@ public class PanelBoczny extends JPanel {
     private final JLabel etykietaZlotoGracza = new JLabel();
     private final JLabel etykietaMiastaGracza= new JLabel();
     private final JLabel etykietaJednostki   = new JLabel();
-    private final JLabel etykietaZlotoAI     = new JLabel();
-    private final JLabel etykietaMiastaAI    = new JLabel();
     private final JLabel etykietaKomunikat   = new JLabel();
+
+    // Sekcja wrogów – dynamicznie odbudowywana przy odswiez()
+    private final JPanel panelWrogow = new JPanel();
+    private final JPanel panelAkcji  = new JPanel();
 
     private final JButton btnSzkolJednostke = new JButton("Szkol jednostkę (20 zł)");
     private final JButton btnBudujMiasto    = new JButton("Buduj miasto");
@@ -25,8 +24,6 @@ public class PanelBoczny extends JPanel {
     private final JButton btnUlepszZycie    = new JButton("+ HP (30 zł)");
     private final JButton btnUlepszRuch     = new JButton("+ Ruch (30 zł)");
     private final JButton btnZakonczTure    = new JButton("Zakończ turę →");
-
-    private final JPanel panelAkcji = new JPanel();
 
     public PanelBoczny(SilnikGry silnik, OknoGry oknoGry) {
         this.silnik = silnik;
@@ -48,10 +45,10 @@ public class PanelBoczny extends JPanel {
         add(Box.createVerticalStrut(4));
         add(separator());
 
-        add(naglowek("WRÓG", new Color(220, 80, 80)));
-        dodajEtykiete(etykietaZlotoAI, Font.PLAIN, 12);
-        dodajEtykiete(etykietaMiastaAI, Font.PLAIN, 12);
-        add(Box.createVerticalStrut(4));
+        // Panel wrogów odbudowywany dynamicznie
+        panelWrogow.setOpaque(false);
+        panelWrogow.setLayout(new BoxLayout(panelWrogow, BoxLayout.Y_AXIS));
+        add(panelWrogow);
         add(separator());
 
         add(naglowek("TEREN", new Color(150, 210, 150)));
@@ -87,26 +84,33 @@ public class PanelBoczny extends JPanel {
 
     public void odswiez() {
         Gracz gracz = silnik.getGraczLudzki();
-        Gracz ai    = silnik.getGraczAI();
 
-        etykietaTury.setText("Tura " + silnik.getNumerTury() + " / " + SilnikGry.LIMIT_TUR);
+        etykietaTury.setText("Tura " + silnik.getNumerTury() + " / " + silnik.getLimitTur());
         etykietaZlotoGracza.setText("Złoto: " + gracz.getZloto()
             + "  (miasto: " + gracz.getKosztBudowyMiasta() + " zł)");
         etykietaMiastaGracza.setText("Miasta: " + gracz.getMiasta().size());
         etykietaJednostki.setText("Jednostki: " + gracz.getJednostki().size());
-        etykietaZlotoAI.setText("Złoto: " + ai.getZloto());
-        etykietaMiastaAI.setText("Miasta: " + ai.getMiasta().size());
-
         etykietaKomunikat.setText(
             "<html><body style='width:185px'>" + silnik.getKomunikat() + "</body></html>");
         btnZakonczTure.setEnabled(silnik.isTuraNalezyDoGracza());
+
+        // Odbuduj sekcję wrogów
+        panelWrogow.removeAll();
+        for (Gracz ai : silnik.getGraczeAI()) {
+            JLabel nagl = naglowek(ai.getNazwa().toUpperCase(), ai.getKolor());
+            panelWrogow.add(nagl);
+            panelWrogow.add(info("Złoto: " + ai.getZloto()
+                + "  Miasta: " + ai.getMiasta().size()
+                + "  Jedn: " + ai.getJednostki().size()));
+        }
+        panelWrogow.revalidate();
+        panelWrogow.repaint();
 
         odswiezPanelAkcji(gracz);
     }
 
     private void odswiezPanelAkcji(Gracz gracz) {
         panelAkcji.removeAll();
-
         if (silnik.getZaznaczoneMiasto() != null) {
             Miasto m = silnik.getZaznaczoneMiasto();
             panelAkcji.add(naglowek("MIASTO: " + m.getNazwa() + " poz." + m.getPoziom(),
@@ -114,35 +118,26 @@ public class PanelBoczny extends JPanel {
             panelAkcji.add(info("+złoto: " + m.getProdukcjaZlota() + " / turę"));
             panelAkcji.add(Box.createVerticalStrut(4));
             dodajPrzycisk(btnSzkolJednostke, gracz.getZloto() >= Miasto.KOSZT_JEDNOSTKI);
-
         } else if (silnik.getZaznaczonaJednostka() != null) {
             Jednostka j = silnik.getZaznaczonaJednostka();
             panelAkcji.add(naglowek("JEDNOSTKA", new Color(200, 180, 80)));
             panelAkcji.add(info("HP: " + j.getPunktyZycia() + "/" + j.getMaksymalnePunktyZycia()));
             panelAkcji.add(info("ATK: " + j.getObrazenia()
                 + "  RUCH: " + j.getPozostalyruch() + "/" + j.getMaksymalnyRuch()));
-
             btnBudujMiasto.setText("Buduj miasto (" + gracz.getKosztBudowyMiasta() + " zł)");
             dodajPrzycisk(btnBudujMiasto, gracz.getZloto() >= gracz.getKosztBudowyMiasta());
-
             if (silnik.czyZaznaczonaJednostkaWMiescie()) {
                 panelAkcji.add(Box.createVerticalStrut(4));
-                panelAkcji.add(info("Ulepszenia (poz. " + j.getPoziomAtaku()
+                panelAkcji.add(info("Ulepszenia (" + j.getPoziomAtaku()
                     + "/" + j.getPoziomZycia() + "/" + j.getPoziomRuchu() + "):"));
                 dodajPrzycisk(btnUlepszAtak,  j.moznaUlepszycAtak()  && gracz.getZloto() >= Jednostka.KOSZT_ULEPSZENIA);
                 dodajPrzycisk(btnUlepszZycie, j.moznaUlepszycZycie() && gracz.getZloto() >= Jednostka.KOSZT_ULEPSZENIA);
                 dodajPrzycisk(btnUlepszRuch,  j.moznaUlepszycRuch()  && gracz.getZloto() >= Jednostka.KOSZT_ULEPSZENIA);
             }
         }
-
         panelAkcji.revalidate();
         panelAkcji.repaint();
     }
-
-    // -------------------------------------------------------------------------
-    // Pomocnicze budowanie UI
-    // -------------------------------------------------------------------------
-
     private void dodajEtykiete(JLabel etykieta, int styl, int rozmiar) {
         etykieta.setForeground(Color.WHITE);
         etykieta.setFont(new Font("SansSerif", styl, rozmiar));
@@ -193,13 +188,11 @@ public class PanelBoczny extends JPanel {
         JPanel wiersz = new JPanel(new FlowLayout(FlowLayout.LEFT, 3, 0));
         wiersz.setOpaque(false);
         wiersz.setMaximumSize(new Dimension(Integer.MAX_VALUE, 16));
-
         JLabel kwadrat = new JLabel("  ");
         kwadrat.setOpaque(true);
         kwadrat.setBackground(teren.kolor);
         kwadrat.setPreferredSize(new Dimension(12, 12));
         wiersz.add(kwadrat);
-
         String koszt = teren.kosztRuchu >= 99 ? "∞" : String.valueOf(teren.kosztRuchu);
         JLabel nazwa = new JLabel(teren.nazwa + " (" + koszt + ")");
         nazwa.setFont(new Font("SansSerif", Font.PLAIN, 10));

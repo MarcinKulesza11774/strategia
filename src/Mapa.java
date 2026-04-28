@@ -1,105 +1,78 @@
 import java.util.Random;
 
 /**
- * Mapa gry.
+ * Mapa gry – siatka pól z terenem i regionami.
+ * Rozmiar i parametry generowania przekazywane przez UstawieniaGry.
  *
- * Generowanie terenu: losujemy N "zalążków" terenu (jak centra regionów),
- * każdemu przypisujemy losowy typ terenu. Następnie każde pole dostaje
- * typ terenu swojego najbliższego zalążka – identyczna metoda co Voronoi
- * dla regionów administracyjnych. Zalążki tego samego typu mogą leżeć
- * obok siebie, więc strefy terenu naturalnie się łączą i tworzą skupiska.
- *
- * Regiony (administracyjne): osobny zestaw centrów Voronoi.
- * W każdym regionie można postawić jedno miasto.
+ * Teren i regiony generowane tą samą metodą Voronoi:
+ * losuj centra, każde pole należy do najbliższego centrum.
  */
 public class Mapa {
-    public static final int ROWS = 100;
-    public static final int COLS = 100;
-    public static final int LICZBA_REGIONOW = 50;
+    private final int rows;
+    private final int cols;
+    private final int liczbaRegionow;
+    private final Pole[][] pola;
 
-    private static final int LICZBA_ZALĄŻKÓW_TERENU = 150;
+    public Mapa(UstawieniaGry ust, long seed) {
+        this.rows = ust.rows;
+        this.cols = ust.cols;
+        this.liczbaRegionow = ust.liczbaRegionow;
+        this.pola = new Pole[rows][cols];
+        generuj(ust.liczbaZalazkowTerenu, seed);
+    }
 
-    private final Pole[][] pola = new Pole[ROWS][COLS];
-    private final int[][] centryRegionow = new int[LICZBA_REGIONOW][2]; // [r][0]=row, [r][1]=col
-
-    public Mapa(long seed) {
+    private void generuj(int liczbaZalazkowTerenu, long seed) {
         Random rng = new Random(seed);
-        generujRegiony(rng);
-        generujTeren(rng);
-    }
 
-    // -------------------------------------------------------------------------
-    // Regiony Voronoi
-    // -------------------------------------------------------------------------
-
-    private void generujRegiony(Random rng) {
-        for (int r = 0; r < LICZBA_REGIONOW; r++) {
-            centryRegionow[r][0] = rng.nextInt(ROWS);
-            centryRegionow[r][1] = rng.nextInt(COLS);
-        }
-    }
-
-    private int regionDlaPola(int row, int col) {
-        int najblizszy = 0;
-        int minDist = Integer.MAX_VALUE;
-        for (int r = 0; r < LICZBA_REGIONOW; r++) {
-            int dr = row - centryRegionow[r][0];
-            int dc = col - centryRegionow[r][1];
-            int dist = dr * dr + dc * dc;
-            if (dist < minDist) { minDist = dist; najblizszy = r; }
-        }
-        return najblizszy;
-    }
-
-    // -------------------------------------------------------------------------
-    // Teren Voronoi
-    // -------------------------------------------------------------------------
-
-    private void generujTeren(Random rng) {
-        // Losuj centra zalążków i przypisz każdemu typ terenu
-        int[][] centryTerenu = new int[LICZBA_ZALĄŻKÓW_TERENU][2];
-        Teren[] typyZalążków = new Teren[LICZBA_ZALĄŻKÓW_TERENU];
-
-        for (int i = 0; i < LICZBA_ZALĄŻKÓW_TERENU; i++) {
-            centryTerenu[i][0] = rng.nextInt(ROWS);
-            centryTerenu[i][1] = rng.nextInt(COLS);
-            typyZalążków[i]    = losujTeren(rng);
+        // --- Regiony Voronoi ---
+        int[][] centryRegionow = new int[liczbaRegionow][2];
+        for (int r = 0; r < liczbaRegionow; r++) {
+            centryRegionow[r][0] = rng.nextInt(rows);
+            centryRegionow[r][1] = rng.nextInt(cols);
         }
 
-        // Każde pole dostaje typ terenu najbliższego zalążka
-        for (int row = 0; row < ROWS; row++) {
-            for (int col = 0; col < COLS; col++) {
-                int najblizszy = 0;
-                int minDist = Integer.MAX_VALUE;
-                for (int i = 0; i < LICZBA_ZALĄŻKÓW_TERENU; i++) {
-                    int dr = row - centryTerenu[i][0];
-                    int dc = col - centryTerenu[i][1];
-                    int dist = dr * dr + dc * dc;
-                    if (dist < minDist) { minDist = dist; najblizszy = i; }
-                }
-                pola[row][col] = new Pole(row, col, typyZalążków[najblizszy], regionDlaPola(row, col));
+        // --- Teren Voronoi ---
+        int[][] centryTerenu = new int[liczbaZalazkowTerenu][2];
+        Teren[] typyZalazków = new Teren[liczbaZalazkowTerenu];
+        for (int i = 0; i < liczbaZalazkowTerenu; i++) {
+            centryTerenu[i][0] = rng.nextInt(rows);
+            centryTerenu[i][1] = rng.nextInt(cols);
+            typyZalazków[i]    = losujTeren(rng);
+        }
+
+        // --- Przypisz pola ---
+        for (int row = 0; row < rows; row++) {
+            for (int col = 0; col < cols; col++) {
+                int region = najblizszyCentrum(row, col, centryRegionow);
+                int zalazek = najblizszyCentrum(row, col, centryTerenu);
+                pola[row][col] = new Pole(row, col, typyZalazków[zalazek], region);
             }
         }
     }
 
+    private int najblizszyCentrum(int row, int col, int[][] centra) {
+        int najblizszy = 0, minDist = Integer.MAX_VALUE;
+        for (int i = 0; i < centra.length; i++) {
+            int dr = row - centra[i][0], dc = col - centra[i][1];
+            int dist = dr * dr + dc * dc;
+            if (dist < minDist) { minDist = dist; najblizszy = i; }
+        }
+        return najblizszy;
+    }
+
     private Teren losujTeren(Random rng) {
-        // Wagi szans bazowych
-        int[] wagi = {6, 4, 3, 4, 2, 1}; // ROWNINA, LAS, GORY, WODA, PUSTYNIA, SNIEG
+        int[] wagi = {6, 4, 3, 4, 2, 1};
         Teren[] tereny = Teren.values();
         int suma = 0;
         for (int w : wagi) suma += w;
         int wylosowany = rng.nextInt(suma);
-        int narastajaca = 0;
+        int n = 0;
         for (int i = 0; i < tereny.length; i++) {
-            narastajaca += wagi[i];
-            if (wylosowany < narastajaca) return tereny[i];
+            n += wagi[i];
+            if (wylosowany < n) return tereny[i];
         }
         return Teren.ROWNINA;
     }
-
-    // -------------------------------------------------------------------------
-    // Dostęp
-    // -------------------------------------------------------------------------
 
     public Pole getPole(int row, int col) {
         if (!czyWMapie(row, col)) return null;
@@ -107,19 +80,19 @@ public class Mapa {
     }
 
     public boolean czyWMapie(int row, int col) {
-        return row >= 0 && row < ROWS && col >= 0 && col < COLS;
+        return row >= 0 && row < rows && col >= 0 && col < cols;
     }
 
     public boolean czyRegionMaMiasto(int numerRegionu) {
-        for (int row = 0; row < ROWS; row++)
-            for (int col = 0; col < COLS; col++)
+        for (int row = 0; row < rows; row++)
+            for (int col = 0; col < cols; col++)
                 if (pola[row][col].getNumerRegionu() == numerRegionu
                         && pola[row][col].getMiasto() != null)
                     return true;
         return false;
     }
 
-    public int getLiczbaWierszy() { return ROWS; }
-    public int getLiczbaKolumn()  { return COLS; }
-    public int getLiczbaRegionow(){ return LICZBA_REGIONOW; }
+    public int getLiczbaWierszy()  { return rows; }
+    public int getLiczbaKolumn()   { return cols; }
+    public int getLiczbaRegionow() { return liczbaRegionow; }
 }

@@ -1,6 +1,3 @@
-/**
- * Miasto na mapie gry.
- */
 public class Miasto {
     private final String nazwa;
     private final int row;

@@ -1,9 +1,5 @@
 import java.awt.Color;
 
-/**
- * Rodzaje terenu na mapie gry.
- * Każdy teren ma kolor wyświetlania oraz koszt wejścia jednostką.
- */
 public enum Teren {
     ROWNINA ("Równina",  new Color(160, 210, 110), 1),
     LAS     ("Las",      new Color(60,  130,  60), 2),

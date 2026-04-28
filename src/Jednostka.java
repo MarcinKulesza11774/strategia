@@ -1,7 +1,3 @@
-/**
- * Jednostka wojskowa na mapie.
- * Statystyki można ulepszać za złoto.
- */
 public class Jednostka {
     private int row;
     private int col;
@@ -18,7 +14,7 @@ public class Jednostka {
     private int poziomRuchu;
 
     public static final int KOSZT_ULEPSZENIA    = 30;
-    public static final int MAX_POZIOM_ULEPSZENIA = 10;
+    public static final int MAX_POZIOM_ULEPSZENIA = 3;
 
     public Jednostka(int row, int col, Gracz wlasciciel) {
         this.row = row;
@@ -27,8 +23,8 @@ public class Jednostka {
         this.maksymalnePunktyZycia = 100;
         this.punktyZycia = 100;
         this.obrazenia = 30;
-        this.maksymalnyRuch = 10;
-        this.pozostalyRuch = 10;
+        this.maksymalnyRuch = 3;
+        this.pozostalyRuch = 3;
     }
 
     public void rozpocznijNowaTure() { pozostalyRuch = maksymalnyRuch; }
@@ -41,7 +37,6 @@ public class Jednostka {
         return true;
     }
 
-    /** Atakuje cel; zwraca true jeśli cel ginie. */
     public boolean atakuj(Jednostka cel) {
         cel.otrzymajObrazenia(obrazenia);
         if (cel.czyZyje()) this.otrzymajObrazenia(cel.obrazenia / 2);
@@ -59,7 +54,7 @@ public class Jednostka {
 
     public void ulepszAtak()  { poziomAtaku++; obrazenia += 15; }
     public void ulepszZycie() { poziomZycia++; maksymalnePunktyZycia += 50; punktyZycia += 50; }
-    public void ulepszRuch()  { poziomRuchu+=3; maksymalnyRuch+=3; }
+    public void ulepszRuch()  { poziomRuchu++; maksymalnyRuch++; }
 
     public boolean czyZyje()   { return punktyZycia > 0; }
     public boolean czyCzynna() { return pozostalyRuch > 0; }
