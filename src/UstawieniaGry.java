@@ -1,6 +1,3 @@
-/**
- * Parametry konfiguracyjne gry wybierane przez gracza w menu startowym.
- */
 public class UstawieniaGry {
     public final int rows;
     public final int cols;

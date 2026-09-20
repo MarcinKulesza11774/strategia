@@ -10,7 +10,7 @@ public enum Teren {
 
     public final String nazwa;
     public final Color kolor;
-    public final int kosztRuchu; // 99 = nieprzejezdny
+    public final int kosztRuchu;
 
     Teren(String nazwa, Color kolor, int kosztRuchu) {
         this.nazwa = nazwa;

@@ -1,15 +1,14 @@
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.*;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
- * Główne okno gry. Zawiera menu startowe (dialog z ustawieniami)
- * oraz właściwy widok gry z mapą i panelem bocznym.
+ * Główne okno gry. Trzyma listę Odswiezalny i woła odswiez() na wszystkich.
  */
 public class OknoGry extends JFrame {
     private SilnikGry silnik;
-    private PanelMapy panelMapy;
-    private PanelBoczny panelBoczny;
+    private final List<Odswiezalny> komponenty = new ArrayList<>();
 
     public OknoGry() {
         setTitle("Gra Strategiczna");
@@ -19,20 +18,23 @@ public class OknoGry extends JFrame {
         pokazMenuStartowe();
     }
 
-    /** Wyświetla dialog z ustawieniami i startuje nową grę. */
     private void pokazMenuStartowe() {
         UstawieniaGry ust = DialogUstawien.pokaz(this);
-        if (ust == null) System.exit(0); // użytkownik zamknął dialog
+        if (ust == null) System.exit(0);
         zaladujGre(ust);
     }
 
     private void zaladujGre(UstawieniaGry ust) {
-        // Usuń stare komponenty jeśli istnieją
         getContentPane().removeAll();
+        komponenty.clear();
 
         silnik = new SilnikGry(ust);
-        panelMapy   = new PanelMapy(silnik, this);
-        panelBoczny = new PanelBoczny(silnik, this);
+
+        PanelMapy panelMapy   = new PanelMapy(silnik, this);
+        PanelBoczny panelBoczny = new PanelBoczny(silnik, this);
+
+        komponenty.add(panelMapy);
+        komponenty.add(panelBoczny);
 
         add(panelMapy,   BorderLayout.CENTER);
         add(panelBoczny, BorderLayout.EAST);
@@ -43,9 +45,9 @@ public class OknoGry extends JFrame {
         repaint();
     }
 
+    /** Odświeża wszystkie komponenty przez interfejs Odswiezalny. */
     public void odswiez() {
-        panelMapy.repaint();
-        panelBoczny.odswiez();
+        for (Odswiezalny k : komponenty) k.odswiez();
         if (silnik.getStanGry() != SilnikGry.StanGry.TRWA) pokazKoniecGry();
     }
 
@@ -66,29 +68,14 @@ public class OknoGry extends JFrame {
     private JMenuBar stworzMenu() {
         JMenuBar pasek = new JMenuBar();
         JMenu menuGra  = new JMenu("Gra");
-
         JMenuItem itemNowaGra = new JMenuItem("Nowa gra...");
         itemNowaGra.addActionListener(e -> pokazMenuStartowe());
-
         JMenuItem itemWyjdz = new JMenuItem("Wyjdź");
         itemWyjdz.addActionListener(e -> System.exit(0));
-
-        JMenuItem itemPomoc = new JMenuItem("Jak grać?");
-        itemPomoc.addActionListener(e -> JOptionPane.showMessageDialog(
-            this, INSTRUKCJA, "Pomoc", JOptionPane.PLAIN_MESSAGE));
-
         menuGra.add(itemNowaGra);
         menuGra.addSeparator();
         menuGra.add(itemWyjdz);
-        menuGra.add(itemPomoc);
         pasek.add(menuGra);
         return pasek;
     }
-
-    private static final String INSTRUKCJA = """
-        STEROWANIE
-        • Lewy przycisk – zaznacz / rusz się / atakuj
-        • Scroll – zoom
-        • Scroll + przesunięcie – przesuwanie mapy
-        """;
 }

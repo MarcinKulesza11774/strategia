@@ -22,7 +22,7 @@ public class PanelJednostki extends PanelKontekstowy {
     @Override
     public void odswiez(Gracz gracz) {
         removeAll();
-        Jednostka j = silnik.getZaznaczonaJednostka();
+        JednostkaNaMapie j = silnik.getZaznaczonaJednostka();
         if (j == null) return;
 
         add(naglowek("JEDNOSTKA", new Color(200, 180, 80)));
@@ -37,9 +37,9 @@ public class PanelJednostki extends PanelKontekstowy {
             add(Box.createVerticalStrut(4));
             add(info("Ulepszenia (" + j.getPoziomAtaku()
                 + "/" + j.getPoziomZycia() + "/" + j.getPoziomRuchu() + "):"));
-            dodajPrzycisk(btnUlepszAtak,  j.moznaUlepszycAtak()  && gracz.getZloto() >= Jednostka.KOSZT_ULEPSZENIA);
-            dodajPrzycisk(btnUlepszZycie, j.moznaUlepszycZycie() && gracz.getZloto() >= Jednostka.KOSZT_ULEPSZENIA);
-            dodajPrzycisk(btnUlepszRuch,  j.moznaUlepszycRuch()  && gracz.getZloto() >= Jednostka.KOSZT_ULEPSZENIA);
+            dodajPrzycisk(btnUlepszAtak,  j.moznaUlepszycAtak()  && gracz.getZloto() >= JednostkaNaMapie.KOSZT_ULEPSZENIA);
+            dodajPrzycisk(btnUlepszZycie, j.moznaUlepszycZycie() && gracz.getZloto() >= JednostkaNaMapie.KOSZT_ULEPSZENIA);
+            dodajPrzycisk(btnUlepszRuch,  j.moznaUlepszycRuch()  && gracz.getZloto() >= JednostkaNaMapie.KOSZT_ULEPSZENIA);
         }
 
         revalidate();

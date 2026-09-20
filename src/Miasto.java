@@ -1,40 +1,66 @@
+import java.util.ArrayList;
 import java.util.List;
 
-public class Miasto extends ObiektNaMapie {
+/**
+ * Miasto – logiczny kontener grupujący budynki należące do jednego osiedla.
+ * Nie ma fizycznej reprezentacji na mapie; zamiast tego każdy budynek
+ * (w tym Town Hall) to osobny BudynekWMiescie na konkretnym polu.
+ */
+public class Miasto {
     private final String nazwa;
-    private int poziom;
-    private int punktyRozwoju;
+    private final List<Pole> pola = new ArrayList<>(); // pola na których stoją budynki tego miasta
 
-    private List<BudynekWMiescie> budynki;
-
-    private static final int PUNKTY_DO_AWANSU = 30;
     public static final int KOSZT_JEDNOSTKI = 20;
 
-    public Miasto(String nazwa, int row, int col, Gracz wlasciciel) {
+    public Miasto(String nazwa) {
         this.nazwa = nazwa;
-        this.row = row;
-        this.col = col;
-        this.wlasciciel = wlasciciel;
-        this.poziom = 1;
     }
 
-    public int getProdukcjaZlota() { return 5 * poziom; }
+    public void dodajPole(Pole pole) {
+        pola.add(pole);
+    }
 
-    public boolean dodajPunktyRozwoju(int punkty) {
-        punktyRozwoju += punkty;
-        if (punktyRozwoju >= PUNKTY_DO_AWANSU) {
-            poziom++;
-            punktyRozwoju -= PUNKTY_DO_AWANSU;
-            return true;
-        }
+    public List<Pole> getPola() { return pola; }
+
+    /** Suma złota ze wszystkich budynków miasta. */
+    public int getProdukcjaZlota() {
+        int suma = 0;
+        for (Pole p : pola)
+            if (p.getBudynek() != null) suma += p.getBudynek().getBudynek().generowaneZloto;
+        return suma;
+    }
+
+    /** Suma nauki ze wszystkich budynków miasta. */
+    public int getProdukcjaNauki() {
+        int suma = 0;
+        for (Pole p : pola)
+            if (p.getBudynek() != null) suma += p.getBudynek().getBudynek().generowanaNauka;
+        return suma;
+    }
+
+    /** Suma pożywienia ze wszystkich budynków miasta. */
+    public int getProdukcjaPozywienia() {
+        int suma = 0;
+        for (Pole p : pola)
+            if (p.getBudynek() != null) suma += p.getBudynek().getBudynek().generowanePozywienie;
+        return suma;
+    }
+
+    public boolean czyMaTownHall() {
+        for (Pole p : pola)
+            if (p.getBudynek() != null && p.getBudynek().getBudynek() == Budynek.TOWNHALL)
+                return true;
         return false;
     }
 
-    public String getNazwa()      { return nazwa; }
-    public int getPoziom()        { return poziom; }
+    public Gracz getWlasciciel() {
+        for (Pole p : pola)
+            if (p.getBudynek() != null) return p.getBudynek().getWlasciciel();
+        return null;
+    }
 
-    public void setWlasciciel(Gracz gracz) { this.wlasciciel = gracz; }
+    public String getNazwa() { return nazwa; }
 
     @Override
-    public String toString() { return nazwa + " (poz." + poziom + ")"; }
+    public String toString() { return nazwa; }
 }

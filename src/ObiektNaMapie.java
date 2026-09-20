@@ -3,7 +3,7 @@ public abstract class ObiektNaMapie {
     protected int col;
     protected Gracz wlasciciel;
 
-    protected int getRow()           { return row; }
-    protected int getCol()           { return col; }
-    protected Gracz getWlasciciel()  { return wlasciciel; }
+    public int getRow()          { return row; }
+    public int getCol()          { return col; }
+    public Gracz getWlasciciel() { return wlasciciel; }
 }

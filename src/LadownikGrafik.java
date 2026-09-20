@@ -1,6 +1,5 @@
 import javax.imageio.ImageIO;
 import java.awt.*;
-import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
@@ -18,7 +17,7 @@ public class LadownikGrafik {
             Image img = wczytaj(KATALOG + "/teren/" + t.name() + ".png");
             if (img != null) grafikaTerenu.put(t, img);
         }
-        grafikaMiasta   = wczytaj(KATALOG + "/miasto.png");
+        grafikaMiasta    = wczytaj(KATALOG + "/miasto.png");
         grafikaJednostki = wczytaj(KATALOG + "/jednostka.png");
     }
 
@@ -32,11 +31,8 @@ public class LadownikGrafik {
         }
     }
 
-    public boolean maGrafikeTerenu(Teren teren) {
-        return grafikaTerenu.containsKey(teren);
-    }
-
-    public Image getGrafikaTerenu(Teren teren) { return grafikaTerenu.get(teren); }
+    public boolean maGrafikeTerenu(Teren teren) { return grafikaTerenu.containsKey(teren); }
+    public Image getGrafikaTerenu(Teren teren)  { return grafikaTerenu.get(teren); }
     public Image getGrafikaMiasta()             { return grafikaMiasta; }
     public Image getGrafikaJednostki()          { return grafikaJednostki; }
 }

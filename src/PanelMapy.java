@@ -3,7 +3,11 @@ import java.awt.*;
 import java.awt.event.*;
 import java.awt.geom.AffineTransform;
 
-public class PanelMapy extends JPanel {
+/**
+ * Panel rysujący mapę. Implementuje Odswiezalny.
+ * Rysuje podświetlenie dostępnych pól podczas trybu budowania budynku.
+ */
+public class PanelMapy extends JPanel implements Odswiezalny {
     private static final int TILE = 40;
 
     private final SilnikGry silnik;
@@ -69,6 +73,11 @@ public class PanelMapy extends JPanel {
     }
 
     @Override
+    public void odswiez() {
+        repaint();
+    }
+
+    @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
         Graphics2D g2 = (Graphics2D) g;
@@ -93,7 +102,7 @@ public class PanelMapy extends JPanel {
             }
         }
 
-        // 2. Siatka – tylko górna i lewa krawędź każdego pola
+        // 2. Siatka
         g2.setColor(new Color(0, 0, 0, 40));
         g2.setStroke(new BasicStroke(1f));
         for (int row = 0; row < mapa.getLiczbaWierszy(); row++) {
@@ -107,101 +116,99 @@ public class PanelMapy extends JPanel {
         g2.drawLine(mapW, 0, mapW, mapH);
         g2.drawLine(0, mapH, mapW, mapH);
 
-        // 3. Miasta i jednostki
+        // 3. Budynki, jednostki, zaznaczenie
         for (int row = 0; row < mapa.getLiczbaWierszy(); row++) {
             for (int col = 0; col < mapa.getLiczbaKolumn(); col++) {
                 Pole pole = mapa.getPole(row, col);
                 int x = col * TILE, y = row * TILE;
-                if (pole.getMiasto() != null)    rysujMiasto(g2, pole.getMiasto(), x, y);
+                if (pole.getBudynek() != null)   rysujBudynek(g2, pole.getBudynek(), x, y);
                 if (pole.getJednostka() != null) rysujJednostke(g2, pole.getJednostka(), x, y);
                 if (pole == zaznaczonePole)      rysujZaznaczenie(g2, x, y);
             }
         }
 
-        // 4. Obwódki regionów – zawsze na wierzchu
+        // 4. Podświetlenie pól dostępnych pod budynek
+        for (Pole p : silnik.getPodswietlonePola()) {
+            int x = p.getCol() * TILE, y = p.getRow() * TILE;
+            g2.setColor(new Color(80, 255, 80, 90));
+            g2.fillRect(x, y, TILE, TILE);
+            g2.setColor(new Color(80, 255, 80, 220));
+            g2.setStroke(new BasicStroke(2f));
+            g2.drawRect(x + 1, y + 1, TILE - 2, TILE - 2);
+            g2.setStroke(new BasicStroke(1f));
+        }
+
+        // 5. Obwódki regionów
         rysujObwodkiRegionow(g2, mapa);
 
         g2.setTransform(originalTransform);
     }
 
     private void rysujObwodkiRegionow(Graphics2D g2, Mapa mapa) {
-        // Ustal kolor każdego regionu
         Color[] kolorRegionow = new Color[mapa.getLiczbaRegionow()];
         for (int row = 0; row < mapa.getLiczbaWierszy(); row++) {
             for (int col = 0; col < mapa.getLiczbaKolumn(); col++) {
                 Pole p = mapa.getPole(row, col);
-                if (p.getMiasto() != null) {
-                    kolorRegionow[p.getNumerRegionu()] = p.getMiasto().getWlasciciel().getKolor();
-                }
+                if (p.getBudynek() != null)
+                    kolorRegionow[p.getNumerRegionu()] = p.getBudynek().getWlasciciel().getKolor();
             }
         }
 
         g2.setStroke(new BasicStroke(3f));
-
         for (int row = 0; row < mapa.getLiczbaWierszy(); row++) {
             for (int col = 0; col < mapa.getLiczbaKolumn(); col++) {
                 Pole pole = mapa.getPole(row, col);
                 int reg = pole.getNumerRegionu();
                 int x = col * TILE, y = row * TILE;
 
-                // Górna krawędź: porównaj z polem powyżej
                 Pole gore = mapa.getPole(row - 1, col);
                 if (gore == null || gore.getNumerRegionu() != reg) {
-                    // Rysuj w kolorze regionu który ma miasto, lub obu jeśli oba mają
-                    Color kolor = gore != null && kolorRegionow[gore.getNumerRegionu()] != null
-                        ? kolorRegionow[gore.getNumerRegionu()]
-                        : kolorRegionow[reg];
-                    if (kolor == null && gore != null) kolor = new Color(100, 100, 100);
-                    if (kolor == null) kolor = new Color(100, 100, 100);
-                    g2.setColor(kolor);
+                    Color kolor = (gore != null && kolorRegionow[gore.getNumerRegionu()] != null)
+                        ? kolorRegionow[gore.getNumerRegionu()] : kolorRegionow[reg];
+                    g2.setColor(kolor != null ? kolor : new Color(100, 100, 100));
                     g2.drawLine(x, y, x + TILE, y);
                 }
 
-                // Lewa krawędź: porównaj z polem po lewej
                 Pole lewo = mapa.getPole(row, col - 1);
                 if (lewo == null || lewo.getNumerRegionu() != reg) {
-                    Color kolor = lewo != null && kolorRegionow[lewo.getNumerRegionu()] != null
-                        ? kolorRegionow[lewo.getNumerRegionu()]
-                        : kolorRegionow[reg];
-                    if (kolor == null) kolor = new Color(100, 100, 100);
-                    g2.setColor(kolor);
+                    Color kolor = (lewo != null && kolorRegionow[lewo.getNumerRegionu()] != null)
+                        ? kolorRegionow[lewo.getNumerRegionu()] : kolorRegionow[reg];
+                    g2.setColor(kolor != null ? kolor : new Color(100, 100, 100));
                     g2.drawLine(x, y, x, y + TILE);
                 }
             }
         }
-
-        // Domknij prawą i dolną krawędź mapy
         int mapW = mapa.getLiczbaKolumn() * TILE, mapH = mapa.getLiczbaWierszy() * TILE;
         g2.setColor(new Color(100, 100, 100));
         g2.drawLine(mapW, 0, mapW, mapH);
         g2.drawLine(0, mapH, mapW, mapH);
-
         g2.setStroke(new BasicStroke(1f));
     }
 
-    private void rysujMiasto(Graphics2D g2, Miasto miasto, int x, int y) {
+    private void rysujBudynek(Graphics2D g2, BudynekWMiescie bwm, int x, int y) {
         if (grafiki.getGrafikaMiasta() != null) {
             g2.drawImage(grafiki.getGrafikaMiasta(), x, y, TILE, TILE, null);
-            // Kolorowa obwódka pokazująca właściciela
-            g2.setColor(miasto.getWlasciciel().getKolor());
+            g2.setColor(bwm.getWlasciciel().getKolor());
             g2.setStroke(new BasicStroke(2f));
             g2.drawRect(x + 1, y + 1, TILE - 2, TILE - 2);
             g2.setStroke(new BasicStroke(1f));
         } else {
-            Color kolor = miasto.getWlasciciel().getKolor();
+            Color kolor = bwm.getWlasciciel().getKolor();
             g2.setColor(kolor);
-            g2.fillRect(x + 8, y + 8, 24, 24);
+            g2.fillRect(x + 6, y + 6, 28, 28);
             g2.setColor(kolor.darker());
-            g2.drawRect(x + 8, y + 8, 24, 24);
+            g2.drawRect(x + 6, y + 6, 28, 28);
             g2.setColor(Color.WHITE);
-            g2.setFont(new Font("Monospaced", Font.BOLD, 11));
-            g2.drawString("M" + miasto.getPoziom(), x + 10, y + 25);
+            g2.setFont(new Font("Monospaced", Font.BOLD, 9));
+            // Skrót nazwy budynku
+            String skrot = bwm.getBudynek() == Budynek.TOWNHALL ? "TH"
+                : bwm.getBudynek().nazwa.substring(0, Math.min(2, bwm.getBudynek().nazwa.length())).toUpperCase();
+            g2.drawString(skrot, x + 10, y + 25);
         }
     }
 
-    private void rysujJednostke(Graphics2D g2, Jednostka jednostka, int x, int y) {
+    private void rysujJednostke(Graphics2D g2, JednostkaNaMapie jednostka, int x, int y) {
         if (grafiki.getGrafikaJednostki() != null) {
-            // Zabarwienie PNG kolorem właściciela przez composite
             g2.drawImage(grafiki.getGrafikaJednostki(), x + 5, y + 5, TILE - 10, TILE - 15, null);
             g2.setColor(jednostka.getWlasciciel().getKolor());
             g2.setStroke(new BasicStroke(2f));
@@ -214,7 +221,6 @@ public class PanelMapy extends JPanel {
             g2.setColor(kolor.darker());
             g2.drawOval(x + 10, y + 8, 20, 20);
         }
-        // Pasek życia zawsze
         int barWidth = TILE - 6;
         int filled = (int) ((double) jednostka.getPunktyZycia()
                 / jednostka.getMaksymalnePunktyZycia() * barWidth);

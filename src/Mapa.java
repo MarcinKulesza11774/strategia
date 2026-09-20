@@ -1,12 +1,5 @@
 import java.util.Random;
 
-/**
- * Mapa gry – siatka pól z terenem i regionami.
- * Rozmiar i parametry generowania przekazywane przez UstawieniaGry.
- *
- * Teren i regiony generowane tą samą metodą Voronoi:
- * losuj centra, każde pole należy do najbliższego centrum.
- */
 public class Mapa {
     private final int rows;
     private final int cols;
@@ -24,14 +17,12 @@ public class Mapa {
     private void generuj(int liczbaZalazkowTerenu, long seed) {
         Random rng = new Random(seed);
 
-        // --- Regiony Voronoi ---
         int[][] centryRegionow = new int[liczbaRegionow][2];
         for (int r = 0; r < liczbaRegionow; r++) {
             centryRegionow[r][0] = rng.nextInt(rows);
             centryRegionow[r][1] = rng.nextInt(cols);
         }
 
-        // --- Teren Voronoi ---
         int[][] centryTerenu = new int[liczbaZalazkowTerenu][2];
         Teren[] typyZalazków = new Teren[liczbaZalazkowTerenu];
         for (int i = 0; i < liczbaZalazkowTerenu; i++) {
@@ -40,10 +31,9 @@ public class Mapa {
             typyZalazków[i]    = losujTeren(rng);
         }
 
-        // --- Przypisz pola ---
         for (int row = 0; row < rows; row++) {
             for (int col = 0; col < cols; col++) {
-                int region = najblizszyCentrum(row, col, centryRegionow);
+                int region  = najblizszyCentrum(row, col, centryRegionow);
                 int zalazek = najblizszyCentrum(row, col, centryTerenu);
                 pola[row][col] = new Pole(row, col, typyZalazków[zalazek], region);
             }
@@ -86,8 +76,8 @@ public class Mapa {
     public boolean czyRegionMaMiasto(int numerRegionu) {
         for (int row = 0; row < rows; row++)
             for (int col = 0; col < cols; col++)
-                if (pola[row][col].getNumerRegionu() == numerRegionu
-                        && pola[row][col].getMiasto() != null)
+                if (pola[row][col].getBudynek() != null
+                        && pola[row][col].getNumerRegionu() == numerRegionu)
                     return true;
         return false;
     }
