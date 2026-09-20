@@ -9,7 +9,12 @@ public class Gracz {
     private final String nazwa;
     private final Color kolor;
     private final boolean czyAI;
+
     private int zloto;
+    private int nauka;
+    private int populacjaZagospodarowana;
+    private int populacjaCaLkowita;
+    private int pozywienie;
 
     private final List<Miasto> miasta = new ArrayList<>();
     private final List<Jednostka> jednostki = new ArrayList<>();

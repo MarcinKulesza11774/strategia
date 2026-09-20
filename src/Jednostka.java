@@ -1,8 +1,4 @@
-public class Jednostka {
-    private int row;
-    private int col;
-    private Gracz wlasciciel;
-
+public class Jednostka extends ObiektNaMapie{
     private int punktyZycia;
     private int maksymalnePunktyZycia;
     private int obrazenia;
@@ -58,10 +54,6 @@ public class Jednostka {
 
     public boolean czyZyje()   { return punktyZycia > 0; }
     public boolean czyCzynna() { return pozostalyRuch > 0; }
-
-    public int getRow()                    { return row; }
-    public int getCol()                    { return col; }
-    public Gracz getWlasciciel()           { return wlasciciel; }
     public int getPunktyZycia()            { return punktyZycia; }
     public int getMaksymalnePunktyZycia()  { return maksymalnePunktyZycia; }
     public int getObrazenia()              { return obrazenia; }

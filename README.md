@@ -35,7 +35,7 @@ Gra kończy się gdy wszystkie wrogie jednostki zostaną zniszczone lub po okre�
 2. Otwórz folder z projektem
 4. Uruchom klasę "Main"
 
-## Uruchomienie z linii poleceń
+## Uruchomienie z wiersza poleceń
 
 - cd (folder z projektem)
 - mkdir out

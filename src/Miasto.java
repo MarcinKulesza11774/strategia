@@ -1,10 +1,11 @@
-public class Miasto {
+import java.util.List;
+
+public class Miasto extends ObiektNaMapie {
     private final String nazwa;
-    private final int row;
-    private final int col;
-    private Gracz wlasciciel;
     private int poziom;
     private int punktyRozwoju;
+
+    private List<BudynekWMiescie> budynki;
 
     private static final int PUNKTY_DO_AWANSU = 30;
     public static final int KOSZT_JEDNOSTKI = 20;
@@ -30,9 +31,6 @@ public class Miasto {
     }
 
     public String getNazwa()      { return nazwa; }
-    public int getRow()           { return row; }
-    public int getCol()           { return col; }
-    public Gracz getWlasciciel()  { return wlasciciel; }
     public int getPoziom()        { return poziom; }
 
     public void setWlasciciel(Gracz gracz) { this.wlasciciel = gracz; }
