@@ -6,7 +6,9 @@ import java.awt.*;
  * Pokazuje produkcję budynków i przyciski budowania nowych.
  */
 public class PanelMiasta extends PanelKontekstowy {
-    private final JButton btnSzkolJednostke = new JButton("Szkol jednostkę (20 zł)");
+    private final JButton btnSzkolJednostke = new JButton("Szkól jednostki");
+    private final JButton btnBuduj = new JButton("Buduj");
+//    private final PanelBudowania panelBudowania = new PanelBudowania(silnik, oknoGry);
 
     // Przyciski budynków – jeden na każdy typ (pomijamy TOWNHALL, bo buduje się przez jednostkę)
     private final Budynek[] dostepneBudynki = {
@@ -15,23 +17,25 @@ public class PanelMiasta extends PanelKontekstowy {
         Budynek.DZIELNICA_KUPIECKA
     };
     private final JButton[] btnBudynki = new JButton[dostepneBudynki.length];
+    private PanelBudowania panelBudowania;
 
     public PanelMiasta(SilnikGry silnik, OknoGry oknoGry) {
         super(silnik, oknoGry);
         btnSzkolJednostke.addActionListener(e -> { silnik.szkolJednostkeWZaznaczonymMiescie(); oknoGry.odswiez(); });
+        panelBudowania = new PanelBudowania(silnik, oknoGry);
 
-        for (int i = 0; i < dostepneBudynki.length; i++) {
-            Budynek b = dostepneBudynki[i];
-            JButton btn = new JButton(b.nazwa + " (" + b.kosztWZlocie + " zł / " + b.kosztWPopulacji + " pop.)");
-            btn.addActionListener(e -> {
-                Miasto miasto = silnik.getZaznaczoneMiasto();
-                if (miasto != null) {
-                    silnik.rozpocznijBudowanie(b, miasto);
-                    oknoGry.odswiez();
-                }
-            });
-            btnBudynki[i] = btn;
-        }
+//        for (int i = 0; i < dostepneBudynki.length; i++) {
+//            Budynek b = dostepneBudynki[i];
+//            JButton btn = new JButton(b.nazwa + " (" + b.kosztWZlocie + " zł / " + b.kosztWPopulacji + " pop.)");
+//            btn.addActionListener(e -> {
+//                Miasto miasto = silnik.getZaznaczoneMiasto();
+//                if (miasto != null) {
+//                    silnik.rozpocznijBudowanie(b, miasto);
+//                    oknoGry.odswiez();
+//                }
+//            });
+//            btnBudynki[i] = btn;
+//        }
     }
 
     @Override
@@ -58,13 +62,17 @@ public class PanelMiasta extends PanelKontekstowy {
         add(naglowek("BUDUJ", new Color(150, 210, 150)));
         add(info("Wolna pop.: " + gracz.getWolnaPopulacja() + "/" + gracz.getPopulacjaCaLkowita()));
 
-        for (int i = 0; i < dostepneBudynki.length; i++) {
-            Budynek b = dostepneBudynki[i];
-            boolean mozna = gracz.getZloto() >= b.kosztWZlocie
-                         && gracz.moznaWydacPopulacje(b.kosztWPopulacji)
-                         && !silnik.czyTrybBudowania();
-            dodajPrzycisk(btnBudynki[i], mozna);
-        }
+//        for (int i = 0; i < dostepneBudynki.length; i++) {
+//            Budynek b = dostepneBudynki[i];
+//            boolean mozna = gracz.getZloto() >= b.kosztWZlocie
+//                         && gracz.moznaWydacPopulacje(b.kosztWPopulacji)
+//                         && !silnik.czyTrybBudowania();
+//            dodajPrzycisk(btnBudynki[i], mozna);
+//        }
+
+        panelBudowania.odswiez(gracz);
+
+        add(panelBudowania);
 
         if (silnik.czyTrybBudowania()) {
             add(Box.createVerticalStrut(4));

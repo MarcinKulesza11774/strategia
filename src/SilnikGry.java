@@ -267,6 +267,27 @@ public class SilnikGry {
         komunikat = "Wyszkolono jednostkę!";
     }
 
+    public void szkolJednostkeWZaznaczonymMiescie(Jednostka jednostka) {
+        if (zaznaczoneMiasto == null) { komunikat = "Zaznacz miasto."; return; }
+        if (graczLudzki.getZloto() < jednostka.kosztWZlocie){
+            komunikat = "Za mało złota (" + Miasto.KOSZT_JEDNOSTKI + ")."; return;
+        }
+        if (graczLudzki.getWolnaPopulacja() < jednostka.kosztWPopulacji){
+            komunikat = "Za mało ludzi (" + Miasto.KOSZT_JEDNOSTKI + ")."; return;
+        }
+        // Szukaj wolnego pola przy dowolnym budynku miasta
+        Pole wolne = null;
+        for (Pole p : zaznaczoneMiasto.getPola()) {
+            wolne = znajdzWolnePoleObok(p.getRow(), p.getCol());
+            if (wolne != null) break;
+        }
+        if (wolne == null) { komunikat = "Brak miejsca wokół miasta."; return; }
+        graczLudzki.odejmijZloto(Miasto.KOSZT_JEDNOSTKI);
+//        graczLudzki.o
+        utworzJednostke(wolne, graczLudzki, jednostka);
+        komunikat = "Wyszkolono jednostkę!";
+    }
+
     // -------------------------------------------------------------------------
     // Ulepszenia jednostki
     // -------------------------------------------------------------------------
@@ -532,6 +553,12 @@ public class SilnikGry {
 
     private void utworzJednostke(Pole pole, Gracz wlasciciel) {
         JednostkaNaMapie j = new JednostkaNaMapie(pole.getRow(), pole.getCol(), wlasciciel);
+        pole.setJednostka(j);
+        wlasciciel.dodajJednostke(j);
+    }
+
+    private void utworzJednostke(Pole pole, Gracz wlasciciel, Jednostka jednostka) {
+        JednostkaNaMapie j = new JednostkaNaMapie(pole.getRow(), pole.getCol(), wlasciciel, jednostka);
         pole.setJednostka(j);
         wlasciciel.dodajJednostke(j);
     }

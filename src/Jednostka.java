@@ -3,7 +3,7 @@ import java.awt.*;
 public enum Jednostka {
     WLUCZNICY         ("włucznicy", 50,   25,  1,  4, 100,    20),
     LUCZNICY         ("łucznicy", 30,   40,  12,  4, 100,    30),
-    KONNI         ("KONNI", 30,   40,  1,  10, 80,    100);
+    KONNI         ("konni", 30,   40,  1,  10, 80,    100);
 
     public final String nazwa;
     public final int hp;
