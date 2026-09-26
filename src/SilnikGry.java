@@ -283,7 +283,7 @@ public class SilnikGry {
         }
         if (wolne == null) { komunikat = "Brak miejsca wokół miasta."; return; }
         graczLudzki.odejmijZloto(Miasto.KOSZT_JEDNOSTKI);
-//        graczLudzki.o
+//        graczLudzki.odej
         utworzJednostke(wolne, graczLudzki, jednostka);
         komunikat = "Wyszkolono jednostkę!";
     }

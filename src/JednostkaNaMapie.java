@@ -6,6 +6,7 @@ public class JednostkaNaMapie extends ObiektNaMapie {
     private int obrazenia;
     private int maksymalnyRuch;
     private int pozostalyRuch;
+    private int zasiegAtaku;
 
     private int poziomAtaku;
     private int poziomZycia;
@@ -30,6 +31,12 @@ public class JednostkaNaMapie extends ObiektNaMapie {
         this.col = col;
         this.wlasciciel = wlasciciel;
         this.rodzajJednostki = rodzajJednostki;
+        this.maksymalnePunktyZycia = rodzajJednostki.hp;
+        this.punktyZycia = rodzajJednostki.hp;
+        this.obrazenia = rodzajJednostki.damage;
+        this.maksymalnyRuch = rodzajJednostki.zasiegRuchu;
+        this.pozostalyRuch = rodzajJednostki.zasiegRuchu;
+        this.zasiegAtaku = rodzajJednostki.zasiegAtaku;
     }
 
     public void rozpocznijNowaTure() { pozostalyRuch = maksymalnyRuch; }

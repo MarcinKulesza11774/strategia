@@ -1,6 +1,8 @@
+// PanelSzkolenia.java
 import javax.swing.*;
+import java.awt.*;
 
-public class PanelSzkolenia extends PanelKontekstowy{
+public class PanelSzkolenia extends PanelKontekstowy {
     private final Jednostka[] dostepneJednostki = {
             Jednostka.WLUCZNICY,
             Jednostka.LUCZNICY,
@@ -9,7 +11,7 @@ public class PanelSzkolenia extends PanelKontekstowy{
 
     private final JButton[] btnJednostki = new JButton[dostepneJednostki.length];
 
-    public PanelSzkolenia(SilnikGry silnik, OknoGry oknoGry){
+    public PanelSzkolenia(SilnikGry silnik, OknoGry oknoGry) {
         super(silnik, oknoGry);
         for (int i = 0; i < dostepneJednostki.length; i++) {
             Jednostka jednostka = dostepneJednostki[i];
@@ -17,7 +19,7 @@ public class PanelSzkolenia extends PanelKontekstowy{
             btn.addActionListener(e -> {
                 Miasto miasto = silnik.getZaznaczoneMiasto();
                 if (miasto != null) {
-                    silnik.szkolJednostkeWZaznaczonymMiescie();
+                    silnik.szkolJednostkeWZaznaczonymMiescie(jednostka);
                     oknoGry.odswiez();
                 }
             });
@@ -27,6 +29,18 @@ public class PanelSzkolenia extends PanelKontekstowy{
 
     @Override
     public void odswiez(Gracz gracz) {
+        removeAll();
+        Miasto m = silnik.getZaznaczoneMiasto();
+        if (m == null) return;
 
+        for (int i = 0; i < dostepneJednostki.length; i++) {
+            Jednostka j = dostepneJednostki[i];
+            boolean mozna = gracz.getZloto() >= j.kosztWZlocie
+                    && gracz.moznaWydacPopulacje(j.kosztWPopulacji);
+            dodajPrzycisk(btnJednostki[i], mozna);
+        }
+
+        revalidate();
+        repaint();
     }
 }
