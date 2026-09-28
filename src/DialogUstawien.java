@@ -5,10 +5,10 @@ public class DialogUstawien extends JDialog {
     private UstawieniaGry wynik = null;
 
     private static final String[] ROZMIARY = {
-        "Mała (16×24)", "Średnia (24×36)", "Duża (32×48)", "Ogromna (40×60)"
+        "Mała", "Średnia", "Duża"
     };
     private static final int[][] WYMIARY = {
-        {16, 24}, {24, 36}, {32, 48}, {40, 60}
+        {24, 36}, {32, 48}, {48, 72}
     };
 
     private DialogUstawien(JFrame owner) {
@@ -18,10 +18,10 @@ public class DialogUstawien extends JDialog {
 
         JComboBox<String> comboRozmiar = new JComboBox<>(ROZMIARY);
         comboRozmiar.setSelectedIndex(1);
-        JSpinner spinnerRegiony = new JSpinner(new SpinnerNumberModel(18, 6, 60, 1));
-        JSpinner spinnerZalazki = new JSpinner(new SpinnerNumberModel(60, 10, 200, 5));
-        JSpinner spinnerAI      = new JSpinner(new SpinnerNumberModel(1, 1, 4, 1));
-        JSpinner spinnerTury    = new JSpinner(new SpinnerNumberModel(40, 10, 200, 5));
+        JSpinner spinnerRegiony = new JSpinner(new SpinnerNumberModel(18, 6, 600000, 1));
+        JSpinner spinnerZalazki = new JSpinner(new SpinnerNumberModel(60, 10, 200000, 5));
+        JSpinner spinnerAI      = new JSpinner(new SpinnerNumberModel(1, 1, 10, 1));
+        JSpinner spinnerTury    = new JSpinner(new SpinnerNumberModel(999999999, 10, 999999999, 5));
 
         JPanel panelPol = new JPanel(new GridLayout(5, 2, 8, 8));
         panelPol.setBorder(BorderFactory.createEmptyBorder(15, 15, 5, 15));

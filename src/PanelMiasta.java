@@ -1,12 +1,6 @@
-// PanelMiasta.java
 import javax.swing.*;
 import java.awt.*;
 
-/**
- * Panel kontekstowy wyświetlany gdy zaznaczone jest miasto gracza.
- * Widok główny pokazuje informacje o mieście oraz przyciski "Buduj" i "Szkól",
- * które zamieniają cały widok na odpowiedni panel z pełną listą opcji.
- */
 public class PanelMiasta extends PanelKontekstowy {
 
     private enum Widok { GLOWNY, BUDOWANIE, SZKOLENIE }
@@ -47,12 +41,12 @@ public class PanelMiasta extends PanelKontekstowy {
         repaint();
     }
 
-    // -------------------------------------------------------------------------
-
     private void pokazGlowny(Gracz gracz, Miasto m) {
         add(naglowek("MIASTO: " + m.getNazwa(), new Color(200, 180, 80)));
-        add(info("Złoto: +" + m.getProdukcjaZlota() + "  Nauka: +" + m.getProdukcjaNauki()
-                + "  Żyw: +" + m.getProdukcjaPozywienia()));
+        add(info("Populacja: " + m.getPopulacja() + " (wolna: " + m.getWolnaPopulacja() + ")"));
+        add(info(String.format("Złoto: +%d (x%.2f)", m.getProdukcjaZlota(), m.getMnoznikZlota())));
+        add(info(String.format("Nauka: +%d (x%.2f)", m.getProdukcjaNauki(), m.getMnoznikNauki())));
+        add(info(String.format("Jedzenie: %+.0f / turę", m.getBilansPozywienia())));
         add(info("Budynki: " + m.getPola().size()));
 
         for (Pole p : m.getPola()) {
@@ -60,10 +54,7 @@ public class PanelMiasta extends PanelKontekstowy {
                 add(info("  • " + p.getBudynek().getBudynek().nazwa));
         }
 
-        add(Box.createVerticalStrut(4));
-        add(info("Wolna pop.: " + gracz.getWolnaPopulacja() + "/" + gracz.getPopulacjaCaLkowita()));
-        add(Box.createVerticalStrut(2));
-
+        add(Box.createVerticalStrut(6));
         dodajPrzycisk(btnBuduj, true);
         dodajPrzycisk(btnSzkol, true);
     }

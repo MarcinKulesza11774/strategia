@@ -3,10 +3,6 @@ import java.awt.*;
 import java.awt.event.*;
 import java.awt.geom.AffineTransform;
 
-/**
- * Panel rysujący mapę. Implementuje Odswiezalny.
- * Rysuje podświetlenie dostępnych pól podczas trybu budowania budynku.
- */
 public class PanelMapy extends JPanel implements Odswiezalny {
     private static final int TILE = 40;
 
@@ -88,7 +84,6 @@ public class PanelMapy extends JPanel implements Odswiezalny {
         Mapa mapa = silnik.getMapa();
         Pole zaznaczonePole = silnik.getZaznaczonePole();
 
-        // 1. Tło terenu
         for (int row = 0; row < mapa.getLiczbaWierszy(); row++) {
             for (int col = 0; col < mapa.getLiczbaKolumn(); col++) {
                 Pole pole = mapa.getPole(row, col);
@@ -102,7 +97,6 @@ public class PanelMapy extends JPanel implements Odswiezalny {
             }
         }
 
-        // 2. Siatka
         g2.setColor(new Color(0, 0, 0, 40));
         g2.setStroke(new BasicStroke(1f));
         for (int row = 0; row < mapa.getLiczbaWierszy(); row++) {
@@ -116,7 +110,6 @@ public class PanelMapy extends JPanel implements Odswiezalny {
         g2.drawLine(mapW, 0, mapW, mapH);
         g2.drawLine(0, mapH, mapW, mapH);
 
-        // 3. Budynki, jednostki, zaznaczenie
         for (int row = 0; row < mapa.getLiczbaWierszy(); row++) {
             for (int col = 0; col < mapa.getLiczbaKolumn(); col++) {
                 Pole pole = mapa.getPole(row, col);
@@ -127,7 +120,26 @@ public class PanelMapy extends JPanel implements Odswiezalny {
             }
         }
 
-        // 4. Podświetlenie pól dostępnych pod budynek
+        for (Pole p : silnik.getPolaRuchuJednostki()) {
+            int x = p.getCol() * TILE, y = p.getRow() * TILE;
+            g2.setColor(new Color(80, 160, 255, 90));
+            g2.fillRect(x, y, TILE, TILE);
+            g2.setColor(new Color(80, 160, 255, 220));
+            g2.setStroke(new BasicStroke(2f));
+            g2.drawRect(x + 1, y + 1, TILE - 2, TILE - 2);
+            g2.setStroke(new BasicStroke(1f));
+        }
+
+        for (Pole p : silnik.getPolaAtakuJednostki()) {
+            int x = p.getCol() * TILE, y = p.getRow() * TILE;
+            g2.setColor(new Color(255, 80, 80, 70));
+            g2.fillRect(x, y, TILE, TILE);
+            g2.setColor(new Color(255, 80, 80, 200));
+            g2.setStroke(new BasicStroke(2f));
+            g2.drawRect(x + 1, y + 1, TILE - 2, TILE - 2);
+            g2.setStroke(new BasicStroke(1f));
+        }
+
         for (Pole p : silnik.getPodswietlonePola()) {
             int x = p.getCol() * TILE, y = p.getRow() * TILE;
             g2.setColor(new Color(80, 255, 80, 90));
@@ -138,7 +150,6 @@ public class PanelMapy extends JPanel implements Odswiezalny {
             g2.setStroke(new BasicStroke(1f));
         }
 
-        // 5. Obwódki regionów
         rysujObwodkiRegionow(g2, mapa);
 
         g2.setTransform(originalTransform);

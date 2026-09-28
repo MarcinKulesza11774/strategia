@@ -1,8 +1,3 @@
-/**
- * Pojedyncze pole na mapie gry.
- * Trzyma budynek (Town Hall, pole uprawne itd.) zamiast osobnego obiektu Miasto –
- * wszystkie budynki są tym samym typem z punktu widzenia mapy.
- */
 public class Pole {
     private final int row;
     private final int col;

@@ -1,30 +1,16 @@
-// PanelSzkolenia.java
 import javax.swing.*;
-import java.awt.*;
 
 public class PanelSzkolenia extends PanelKontekstowy {
-    private final Jednostka[] dostepneJednostki = {
-            Jednostka.WLUCZNICY,
-            Jednostka.LUCZNICY,
-            Jednostka.KONNI
-    };
-
-    private final JButton[] btnJednostki = new JButton[dostepneJednostki.length];
+    private final JButton[] btnJednostki;
 
     public PanelSzkolenia(SilnikGry silnik, OknoGry oknoGry) {
         super(silnik, oknoGry);
-        for (int i = 0; i < dostepneJednostki.length; i++) {
-            Jednostka jednostka = dostepneJednostki[i];
-            JButton btn = new JButton(jednostka.nazwa + " (" + jednostka.kosztWZlocie + " zł / " + jednostka.kosztWPopulacji + " pop.)");
-            btn.addActionListener(e -> {
-                Miasto miasto = silnik.getZaznaczoneMiasto();
-                if (miasto != null) {
-                    silnik.szkolJednostkeWZaznaczonymMiescie(jednostka);
-                    oknoGry.odswiez();
-                }
-            });
-            btnJednostki[i] = btn;
-        }
+        btnJednostki = stworzPrzyciskiKosztowne(Jednostka.values(), jednostka -> {
+            if (silnik.getZaznaczoneMiasto() != null) {
+                silnik.szkolJednostkeWZaznaczonymMiescie(jednostka);
+                oknoGry.odswiez();
+            }
+        });
     }
 
     @Override
@@ -33,12 +19,9 @@ public class PanelSzkolenia extends PanelKontekstowy {
         Miasto m = silnik.getZaznaczoneMiasto();
         if (m == null) return;
 
-        for (int i = 0; i < dostepneJednostki.length; i++) {
-            Jednostka j = dostepneJednostki[i];
-            boolean mozna = gracz.getZloto() >= j.kosztWZlocie
-                    && gracz.moznaWydacPopulacje(j.kosztWPopulacji);
-            dodajPrzycisk(btnJednostki[i], mozna);
-        }
+        Jednostka[] wartosci = Jednostka.values();
+        for (int i = 0; i < wartosci.length; i++)
+            dodajPrzycisk(btnJednostki[i], stacNa(gracz, m, wartosci[i]));
 
         revalidate();
         repaint();

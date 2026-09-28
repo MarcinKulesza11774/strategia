@@ -17,17 +17,17 @@ public class SilnikGry {
     private final int limitTur;
     private int numerTury = 1;
     private boolean turaNalezyDoGracza = true;
-    private String komunikat = "Tura 1 – Twoja kolej!";
+    private String komunikat = "Tura 1";
 
-    // Zaznaczenie
     private Pole zaznaczonePole;
     private JednostkaNaMapie zaznaczonaJednostka;
     private Miasto zaznaczoneMiasto;
 
-    // Stan budowania budynku: jeśli != null, gracz wybrał budynek i klika lokalizację
     private Budynek budynekDoPostawienia = null;
     private Miasto miastoKtoreBuduje    = null;
     private List<Pole> podswietlonePola = new ArrayList<>();
+    private List<Pole> polaRuchuJednostki = new ArrayList<>();
+    private List<Pole> polaAtakuJednostki = new ArrayList<>();
 
     public enum StanGry { TRWA, WYGRANA_GRACZA, PRZEGRANA, REMIS }
     private StanGry stanGry = StanGry.TRWA;
@@ -35,6 +35,9 @@ public class SilnikGry {
     private int licznikMiastGracza = 1;
     private final int[] licznikMiastAI;
     private final Random rng = new Random();
+
+    private boolean drzewkoOtwarte = false;
+    private Perk zaznaczonyPerk;
 
     public SilnikGry(UstawieniaGry ust) {
         mapa = new Mapa(ust, System.currentTimeMillis());
@@ -52,13 +55,12 @@ public class SilnikGry {
     }
 
     private void rozmieszczGraczy() {
-        for (int i = 0; i < wszyscy.size(); i++) {
-            Gracz gracz = wszyscy.get(i);
+        for (Gracz gracz : wszyscy) {
             Pole start = znajdzLosowyWolnyStart();
             if (start == null) continue;
             String nazwa = gracz.isCzyAI()
-                ? "Miasto " + licznikMiastAI[graczeAI.indexOf(gracz)]++
-                : "Miasto " + licznikMiastGracza++;
+                    ? "Miasto " + licznikMiastAI[graczeAI.indexOf(gracz)]++
+                    : "Miasto " + licznikMiastGracza++;
             zalozMiasto(start, gracz, nazwa);
             Pole obokMiasta = znajdzWolnePoleObok(start.getRow(), start.getCol());
             if (obokMiasta != null) utworzJednostke(obokMiasta, gracz);
@@ -82,17 +84,12 @@ public class SilnikGry {
         return null;
     }
 
-    // -------------------------------------------------------------------------
-    // Kliknięcie
-    // -------------------------------------------------------------------------
-
     public void kliknijPole(int row, int col) {
         if (!turaNalezyDoGracza || stanGry != StanGry.TRWA) return;
         Pole klikniete = mapa.getPole(row, col);
         if (klikniete == null) return;
 
-        // Tryb budowania: gracz wybrał budynek, teraz klika lokalizację
-        if (budynekDoPostawienia != null) {
+         if (budynekDoPostawienia != null) {
             if (podswietlonePola.contains(klikniete)) {
                 postawBudynek(klikniete, budynekDoPostawienia, miastoKtoreBuduje);
             } else {
@@ -102,8 +99,18 @@ public class SilnikGry {
             return;
         }
 
-        // Tryb normalny: zaznaczenie lub akcja jednostki
-        if (zaznaczonaJednostka != null) {
+         if (zaznaczonaJednostka != null) {
+            if (klikniete == zaznaczonePole
+                    && klikniete.getBudynek() != null
+                    && klikniete.getBudynek().getWlasciciel() == graczLudzki) {
+                zaznaczonaJednostka = null;
+                polaRuchuJednostki = new ArrayList<>();
+                polaAtakuJednostki = new ArrayList<>();
+                zaznaczoneMiasto = klikniete.getBudynek().getMiasto();
+                komunikat = "Miasto: " + zaznaczoneMiasto.getNazwa();
+                return;
+            }
+
             JednostkaNaMapie celWrogi = klikniete.getJednostka();
             if (celWrogi != null && celWrogi.getWlasciciel() != graczLudzki) {
                 akcjaAtak(zaznaczonaJednostka, celWrogi);
@@ -120,9 +127,11 @@ public class SilnikGry {
                 && klikniete.getJednostka().getWlasciciel() == graczLudzki) {
             zaznaczonaJednostka = klikniete.getJednostka();
             zaznaczonePole = klikniete;
+            polaRuchuJednostki = obliczZasiegRuchu(zaznaczonaJednostka);
+            polaAtakuJednostki = obliczZasiegAtaku(zaznaczonaJednostka);
             JednostkaNaMapie j = zaznaczonaJednostka;
             komunikat = "Jednostka: HP " + j.getPunktyZycia() + "/" + j.getMaksymalnePunktyZycia()
-                      + "  ATK " + j.getObrazenia() + "  RUCH " + j.getPozostalyruch();
+                    + "  ATK " + j.getObrazenia() + "  RUCH " + j.getPozostalyruch();
         } else if (klikniete.getBudynek() != null
                 && klikniete.getBudynek().getWlasciciel() == graczLudzki) {
             zaznaczoneMiasto = klikniete.getBudynek().getMiasto();
@@ -132,10 +141,6 @@ public class SilnikGry {
             komunikat = klikniete.getTeren().nazwa;
         }
     }
-
-    // -------------------------------------------------------------------------
-    // Ruch i atak
-    // -------------------------------------------------------------------------
 
     private void akcjaRuch(JednostkaNaMapie jednostka, Pole cel) {
         if (!cel.czyPrzejezdne())       { komunikat = "Nieprzejezdny teren."; return; }
@@ -160,10 +165,8 @@ public class SilnikGry {
     }
 
     private void akcjaAtak(JednostkaNaMapie atakujacy, JednostkaNaMapie obronca) {
-        if (!sasiaduja4(atakujacy.getRow(), atakujacy.getCol(),
-                        obronca.getRow(), obronca.getCol())) {
-            komunikat = "Cel zbyt daleko."; return;
-        }
+        if (!atakujacy.czyMozeAtakowac()) { komunikat = "Ta jednostka już zaatakowała w tej turze."; return; }
+        if (!wZasiegu(atakujacy, obronca)) { komunikat = "Cel poza zasięgiem."; return; }
         Gracz wlascicielObroncy = obronca.getWlasciciel();
         boolean ginie = atakujacy.atakuj(obronca);
         komunikat = "Atak! Wróg ma " + obronca.getPunktyZycia() + " HP.";
@@ -171,60 +174,103 @@ public class SilnikGry {
         if (!atakujacy.czyZyje()) { usunJednostke(atakujacy, graczLudzki); komunikat += " Twoja jednostka zginęła!"; }
     }
 
-    // -------------------------------------------------------------------------
-    // Budowanie miasta (Town Hall przez jednostkę)
-    // -------------------------------------------------------------------------
+     private boolean wZasiegu(JednostkaNaMapie atakujacy, JednostkaNaMapie cel) {
+        int dx = atakujacy.getCol() - cel.getCol();
+        int dy = atakujacy.getRow() - cel.getRow();
+        int zasieg = atakujacy.getZasiegAtaku();
+        return dx * dx + dy * dy <= zasieg * zasieg;
+    }
 
-    public void budujMiastoZaznaczonegoGracza() {
-        if (zaznaczonaJednostka == null) { komunikat = "Zaznacz jednostkę."; return; }
+    private List<Pole> obliczZasiegRuchu(JednostkaNaMapie jednostka) {
+        int budzet = jednostka.getPozostalyruch();
+        int rows = mapa.getLiczbaWierszy(), cols = mapa.getLiczbaKolumn();
+        int[][] koszt = new int[rows][cols];
+        for (int[] r : koszt) Arrays.fill(r, Integer.MAX_VALUE);
+        int startRow = jednostka.getRow(), startCol = jednostka.getCol();
+        koszt[startRow][startCol] = 0;
+
+        PriorityQueue<int[]> otwarte = new PriorityQueue<>(Comparator.comparingInt(a -> a[0]));
+        otwarte.add(new int[]{0, startRow, startCol});
+        int[][] kierunki = {{-1,0},{1,0},{0,-1},{0,1}};
+        List<Pole> osiagalne = new ArrayList<>();
+
+        while (!otwarte.isEmpty()) {
+            int[] biezacy = otwarte.poll();
+            int aktualnyKoszt = biezacy[0], row = biezacy[1], col = biezacy[2];
+            if (aktualnyKoszt > koszt[row][col]) continue;
+            if (!(row == startRow && col == startCol)) osiagalne.add(mapa.getPole(row, col));
+
+            for (int[] k : kierunki) {
+                int nr = row + k[0], nc = col + k[1];
+                Pole sasiad = mapa.getPole(nr, nc);
+                if (sasiad == null || !sasiad.czyPrzejezdne() || sasiad.getJednostka() != null) continue;
+                int nowyKoszt = aktualnyKoszt + sasiad.getTeren().kosztRuchu;
+                if (nowyKoszt <= budzet && nowyKoszt < koszt[nr][nc]) {
+                    koszt[nr][nc] = nowyKoszt;
+                    otwarte.add(new int[]{nowyKoszt, nr, nc});
+                }
+            }
+        }
+        return osiagalne;
+    }
+
+    private List<Pole> obliczZasiegAtaku(JednostkaNaMapie jednostka) {
+        List<Pole> wZasiegu = new ArrayList<>();
+        int zasieg = jednostka.getZasiegAtaku();
+        int row = jednostka.getRow(), col = jednostka.getCol();
+        for (int dr = -zasieg; dr <= zasieg; dr++) {
+            for (int dc = -zasieg; dc <= zasieg; dc++) {
+                if (dr == 0 && dc == 0) continue;
+                if (dr * dr + dc * dc > zasieg * zasieg) continue;
+                Pole p = mapa.getPole(row + dr, col + dc);
+                if (p != null) wZasiegu.add(p);
+            }
+        }
+        return wZasiegu;
+    }
+
+
+   public void budujMiastoZaznaczonegoGracza() {
+        if (zaznaczonaJednostka == null) { komunikat = "Zaznacz jednostkę"; return; }
         Pole pole = mapa.getPole(zaznaczonaJednostka.getRow(), zaznaczonaJednostka.getCol());
-        if (pole.getBudynek() != null)                         { komunikat = "Tu już stoi budynek."; return; }
+        if (pole.getBudynek() != null)                         { komunikat = "Tu już stoi budynek"; return; }
         if (mapa.czyRegionMaMiasto(pole.getNumerRegionu()))    { komunikat = "Region już ma miasto."; return; }
         int koszt = graczLudzki.getKosztBudowyMiasta();
-        if (graczLudzki.getZloto() < koszt)                    { komunikat = "Za mało złota (" + koszt + ")."; return; }
+        if (graczLudzki.getZloto() < koszt)                    { komunikat = "Za mało złota (" + koszt + ")"; return; }
         graczLudzki.odejmijZloto(koszt);
         zalozMiasto(pole, graczLudzki, "Miasto " + licznikMiastGracza++);
-        komunikat = "Zbudowano miasto!";
+        komunikat = "Zbudowano miasto";
         wyczyscZaznaczenie();
     }
 
-    // -------------------------------------------------------------------------
-    // Budowanie budynku w mieście
-    // -------------------------------------------------------------------------
-
-    /**
-     * Rozpoczyna tryb budowania: zapamiętuje wybrany budynek i miasto,
-     * oblicza i ustawia listę podswietlonePola.
-     */
     public void rozpocznijBudowanie(Budynek budynek, Miasto miasto) {
-        if (!graczLudzki.moznaWydacPopulacje(budynek.kosztWPopulacji)) {
-            komunikat = "Za mało wolnej populacji."; return;
+        if (!miasto.moznaWydacPopulacje(budynek.kosztWPopulacji)) {
+            komunikat = "Za mało wolnej populacji"; return;
         }
         if (graczLudzki.getZloto() < budynek.kosztWZlocie) {
-            komunikat = "Za mało złota (" + budynek.kosztWZlocie + ")."; return;
+            komunikat = "Za mało złota (" + budynek.kosztWZlocie + ")"; return;
         }
         budynekDoPostawienia = budynek;
         miastoKtoreBuduje = miasto;
         podswietlonePola = obliczDostepnePola(miasto);
         if (podswietlonePola.isEmpty()) {
-            komunikat = "Brak miejsca wokół miasta.";
+            komunikat = "Brak miejsca";
             anulujBudowanie();
             return;
         }
-        komunikat = "Kliknij podświetlone pole aby postawić " + budynek.nazwa + ".";
+        komunikat = "Kliknij podświetlone pole aby postawić " + budynek.nazwa;
     }
 
     private void postawBudynek(Pole pole, Budynek budynek, Miasto miasto) {
         graczLudzki.odejmijZloto(budynek.kosztWZlocie);
-        graczLudzki.wydajPopulacje(budynek.kosztWPopulacji);
+        miasto.wydajPopulacje(budynek.kosztWPopulacji);
         BudynekWMiescie nowy = new BudynekWMiescie(budynek, pole.getRow(), pole.getCol(),
                                                     graczLudzki, miasto);
         pole.setBudynek(nowy);
         miasto.dodajPole(pole);
-        komunikat = "Postawiono " + budynek.nazwa + "!";
+        komunikat = "Postawiono " + budynek.nazwa;
     }
 
-    /** Pola sąsiadujące z dowolnym polem miasta, wolne od budynków i jednostek. */
     private List<Pole> obliczDostepnePola(Miasto miasto) {
         Set<Pole> dostepne = new LinkedHashSet<>();
         int[][] kierunki = {{-1,0},{1,0},{0,-1},{0,1}};
@@ -233,7 +279,8 @@ public class SilnikGry {
                 Pole kandydat = mapa.getPole(poleMiasta.getRow() + k[0], poleMiasta.getCol() + k[1]);
                 if (kandydat != null && kandydat.czyPrzejezdne()
                         && kandydat.getBudynek() == null
-                        && kandydat.getJednostka() == null)
+                        && kandydat.getJednostka() == null
+                        && kandydat.getNumerRegionu() == poleMiasta.getNumerRegionu())
                     dostepne.add(kandydat);
             }
         }
@@ -246,46 +293,24 @@ public class SilnikGry {
         podswietlonePola = new ArrayList<>();
     }
 
-    // -------------------------------------------------------------------------
-    // Szkolenie jednostki
-    // -------------------------------------------------------------------------
-
-    public void szkolJednostkeWZaznaczonymMiescie() {
-        if (zaznaczoneMiasto == null) { komunikat = "Zaznacz miasto."; return; }
-        if (graczLudzki.getZloto() < Miasto.KOSZT_JEDNOSTKI) {
-            komunikat = "Za mało złota (" + Miasto.KOSZT_JEDNOSTKI + ")."; return;
-        }
-        // Szukaj wolnego pola przy dowolnym budynku miasta
-        Pole wolne = null;
-        for (Pole p : zaznaczoneMiasto.getPola()) {
-            wolne = znajdzWolnePoleObok(p.getRow(), p.getCol());
-            if (wolne != null) break;
-        }
-        if (wolne == null) { komunikat = "Brak miejsca wokół miasta."; return; }
-        graczLudzki.odejmijZloto(Miasto.KOSZT_JEDNOSTKI);
-        utworzJednostke(wolne, graczLudzki);
-        komunikat = "Wyszkolono jednostkę!";
-    }
-
     public void szkolJednostkeWZaznaczonymMiescie(Jednostka jednostka) {
-        if (zaznaczoneMiasto == null) { komunikat = "Zaznacz miasto."; return; }
-        if (graczLudzki.getZloto() < jednostka.kosztWZlocie){
-            komunikat = "Za mało złota (" + Miasto.KOSZT_JEDNOSTKI + ")."; return;
+        if (zaznaczoneMiasto == null) { komunikat = "Zaznacz miasto"; return; }
+        if (graczLudzki.getZloto() < jednostka.kosztWZlocie) {
+            komunikat = "Za mało złota (" + jednostka.kosztWZlocie + ")"; return;
         }
-        if (graczLudzki.getWolnaPopulacja() < jednostka.kosztWPopulacji){
-            komunikat = "Za mało ludzi (" + Miasto.KOSZT_JEDNOSTKI + ")."; return;
+        if (!zaznaczoneMiasto.moznaWydacPopulacje(jednostka.kosztWPopulacji)) {
+            komunikat = "Za mało populacji w mieście (" + jednostka.kosztWPopulacji + ")"; return;
         }
-        // Szukaj wolnego pola przy dowolnym budynku miasta
         Pole wolne = null;
         for (Pole p : zaznaczoneMiasto.getPola()) {
             wolne = znajdzWolnePoleObok(p.getRow(), p.getCol());
             if (wolne != null) break;
         }
-        if (wolne == null) { komunikat = "Brak miejsca wokół miasta."; return; }
-        graczLudzki.odejmijZloto(Miasto.KOSZT_JEDNOSTKI);
-//        graczLudzki.odej
+        if (wolne == null) { komunikat = "Brak miejsca wokół miasta"; return; }
+        graczLudzki.odejmijZloto(jednostka.kosztWZlocie);
+        zaznaczoneMiasto.wydajPopulacje(jednostka.kosztWPopulacji);
         utworzJednostke(wolne, graczLudzki, jednostka);
-        komunikat = "Wyszkolono jednostkę!";
+        komunikat = "Wyszkolono: " + jednostka.nazwa;
     }
 
     // -------------------------------------------------------------------------
@@ -294,11 +319,11 @@ public class SilnikGry {
 
     public void ulepszAtakZaznaczonegoGracza() {
         if (!moznaUlepszac()) return;
-        if (graczLudzki.getZloto() < JednostkaNaMapie.KOSZT_ULEPSZENIA) { komunikat = "Za mało złota."; return; }
-        if (!zaznaczonaJednostka.moznaUlepszycAtak())             { komunikat = "Max poziom."; return; }
+        if (graczLudzki.getZloto() < JednostkaNaMapie.KOSZT_ULEPSZENIA) { komunikat = "Za mało złota"; return; }
+        if (!zaznaczonaJednostka.moznaUlepszycAtak())             { komunikat = "Max poziom"; return; }
         graczLudzki.odejmijZloto(JednostkaNaMapie.KOSZT_ULEPSZENIA);
         zaznaczonaJednostka.ulepszAtak();
-        komunikat = "Ulepszono atak!";
+        komunikat = "Ulepszono atak";
     }
 
     public void ulepszZycieZaznaczonegoGracza() {
@@ -307,7 +332,7 @@ public class SilnikGry {
         if (!zaznaczonaJednostka.moznaUlepszycZycie())            { komunikat = "Max poziom."; return; }
         graczLudzki.odejmijZloto(JednostkaNaMapie.KOSZT_ULEPSZENIA);
         zaznaczonaJednostka.ulepszZycie();
-        komunikat = "Ulepszono HP!";
+        komunikat = "Ulepszono HP";
     }
 
     public void ulepszRuchZaznaczonegoGracza() {
@@ -316,14 +341,14 @@ public class SilnikGry {
         if (!zaznaczonaJednostka.moznaUlepszycRuch())             { komunikat = "Max poziom."; return; }
         graczLudzki.odejmijZloto(JednostkaNaMapie.KOSZT_ULEPSZENIA);
         zaznaczonaJednostka.ulepszRuch();
-        komunikat = "Ulepszono ruch!";
+        komunikat = "Ulepszono ruch";
     }
 
     private boolean moznaUlepszac() {
-        if (zaznaczonaJednostka == null) { komunikat = "Zaznacz jednostkę."; return false; }
+        if (zaznaczonaJednostka == null) { komunikat = "Zaznacz jednostkę"; return false; }
         Pole pole = mapa.getPole(zaznaczonaJednostka.getRow(), zaznaczonaJednostka.getCol());
         if (pole.getBudynek() == null || pole.getBudynek().getWlasciciel() != graczLudzki) {
-            komunikat = "Jednostka musi stać w swoim mieście."; return false;
+            komunikat = "Jednostka musi stać w swoim mieście"; return false;
         }
         return true;
     }
@@ -333,10 +358,6 @@ public class SilnikGry {
         Pole pole = mapa.getPole(zaznaczonaJednostka.getRow(), zaznaczonaJednostka.getCol());
         return pole.getBudynek() != null && pole.getBudynek().getWlasciciel() == graczLudzki;
     }
-
-    // -------------------------------------------------------------------------
-    // Tura
-    // -------------------------------------------------------------------------
 
     public void zakonczTure() {
         if (!turaNalezyDoGracza || stanGry != StanGry.TRWA) return;
@@ -358,10 +379,32 @@ public class SilnikGry {
 
         numerTury++;
         turaNalezyDoGracza = true;
-        komunikat = "Tura " + numerTury + " – Twoja kolej!";
+        komunikat = "Tura " + numerTury;
 
         if (numerTury > limitTur) rozstrzygnijLimitTur();
         else sprawdzZwyciestwo();
+    }
+
+   public void otworzDrzewkoRozwoju() {
+        wyczyscZaznaczenie();
+        drzewkoOtwarte = true;
+    }
+
+    public void zamknijDrzewkoRozwoju() {
+        drzewkoOtwarte = false;
+        zaznaczonyPerk = null;
+    }
+
+    public boolean czyDrzewkoOtwarte() { return drzewkoOtwarte; }
+
+    public void zaznaczPerk(Perk perk) { zaznaczonyPerk = perk; }
+    public Perk getZaznaczonyPerk()    { return zaznaczonyPerk; }
+
+    public boolean kupZaznaczonyPerk() {
+        if (zaznaczonyPerk == null) return false;
+        boolean udalo = graczLudzki.kupPerk(zaznaczonyPerk);
+        komunikat = udalo ? "Kupiono: " + zaznaczonyPerk.nazwa : "Nie można kupić perka.";
+        return udalo;
     }
 
     // -------------------------------------------------------------------------
@@ -444,10 +487,6 @@ public class SilnikGry {
         return najblizszy;
     }
 
-    // -------------------------------------------------------------------------
-    // A*
-    // -------------------------------------------------------------------------
-
     private List<Pole> znajdzSciezke(int startRow, int startCol, int celRow, int celCol) {
         int rows = mapa.getLiczbaWierszy(), cols = mapa.getLiczbaKolumn();
         int[][] g = new int[rows][cols];
@@ -493,10 +532,6 @@ public class SilnikGry {
         return Math.abs(celRow - row) + Math.abs(celCol - col);
     }
 
-    // -------------------------------------------------------------------------
-    // Warunki zwycięstwa
-    // -------------------------------------------------------------------------
-
     private void sprawdzZwyciestwo() {
         boolean wszyscyAIMartiwi = graczeAI.stream()
             .allMatch(ai -> ai.getJednostki().isEmpty() && ai.getMiasta().isEmpty());
@@ -512,12 +547,6 @@ public class SilnikGry {
         else if (mg < maxAI) stanGry = StanGry.PRZEGRANA;
         else stanGry = StanGry.REMIS;
     }
-
-    // -------------------------------------------------------------------------
-    // Pomocnicze
-    // -------------------------------------------------------------------------
-
-    /** Tworzy nowe miasto z Town Hallem na danym polu. */
     private void zalozMiasto(Pole pole, Gracz wlasciciel, String nazwa) {
         Miasto miasto = new Miasto(nazwa);
         BudynekWMiescie townHall = new BudynekWMiescie(Budynek.TOWNHALL, pole.getRow(),
@@ -527,14 +556,12 @@ public class SilnikGry {
         wlasciciel.dodajMiasto(miasto);
     }
 
-    /** Przejmuje jeden budynek (zmienia właściciela). Jeśli to ostatni budynek miasta, usuwa całe miasto. */
-    private void przejmijBudynek(Pole pole, Gracz nowyWlasciciel) {
+      private void przejmijBudynek(Pole pole, Gracz nowyWlasciciel) {
         BudynekWMiescie budynek = pole.getBudynek();
         Gracz staryWlasciciel = budynek.getWlasciciel();
         Miasto miasto = budynek.getMiasto();
 
-        // Sprawdź czy całe miasto należy do starego właściciela – jeśli tak, przejmij je całe
-        boolean caleMiastoWroga = miasto.getPola().stream()
+         boolean caleMiastoWroga = miasto.getPola().stream()
             .allMatch(p -> p.getBudynek() == null || p.getBudynek().getWlasciciel() == staryWlasciciel);
 
         if (caleMiastoWroga) {
@@ -547,7 +574,7 @@ public class SilnikGry {
                                                      nowyWlasciciel, miasto));
                 }
             }
-            komunikat = "Przejęto miasto " + miasto.getNazwa() + "!";
+            komunikat = "Przejęto miasto " + miasto.getNazwa();
         }
     }
 
@@ -587,6 +614,8 @@ public class SilnikGry {
         zaznaczonePole = null;
         zaznaczonaJednostka = null;
         zaznaczoneMiasto = null;
+        polaRuchuJednostki = new ArrayList<>();
+        polaAtakuJednostki = new ArrayList<>();
     }
 
     public Mapa getMapa()                       { return mapa; }
@@ -602,5 +631,7 @@ public class SilnikGry {
     public JednostkaNaMapie getZaznaczonaJednostka()   { return zaznaczonaJednostka; }
     public Miasto getZaznaczoneMiasto()         { return zaznaczoneMiasto; }
     public List<Pole> getPodswietlonePola()     { return podswietlonePola; }
+    public List<Pole> getPolaRuchuJednostki() { return polaRuchuJednostki; }
+    public List<Pole> getPolaAtakuJednostki() { return polaAtakuJednostki; }
     public boolean czyTrybBudowania()           { return budynekDoPostawienia != null; }
 }

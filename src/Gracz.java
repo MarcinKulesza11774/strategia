@@ -1,6 +1,8 @@
 import java.awt.Color;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class Gracz {
     private final String nazwa;
@@ -9,44 +11,48 @@ public class Gracz {
 
     private int zloto;
     private int nauka;
-    private int populacjaCaLkowita;
-    private int populacjaZagospodarowana; // zajęta przez budynki i jednostki
-    private int pozywienie;
+    private double mnoznikZlota = 1.0;
 
-    private static final int POZYWIENIE_NA_POPULACJE = 10; // ile pożywienia = +1 populacja/turę
     private static final int KOSZT_BUDOWY_MIASTA = 50;
 
     private final List<Miasto> miasta = new ArrayList<>();
     private final List<JednostkaNaMapie> jednostki = new ArrayList<>();
+    private final Set<Perk> zakupionePerki = new HashSet<>();
 
     public Gracz(String nazwa, Color kolor, boolean czyAI) {
         this.nazwa = nazwa;
         this.kolor = kolor;
         this.czyAI = czyAI;
         this.zloto = 50;
-        this.populacjaCaLkowita = 10;
     }
 
-    /** Zbiera złoto, naukę i pożywienie ze wszystkich miast. Przyrost populacji z pożywienia. */
     public void zbierzZasobyZMiast() {
         for (Miasto m : miasta) {
             zloto += m.getProdukcjaZlota();
             nauka += m.getProdukcjaNauki();
-            pozywienie += m.getProdukcjaPozywienia();
+            m.przeliczPopulacje();
         }
-        populacjaCaLkowita += pozywienie / POZYWIENIE_NA_POPULACJE;
     }
 
-    public int getWolnaPopulacja() {
-        return populacjaCaLkowita - populacjaZagospodarowana;
+    public int getPopulacjaCaLkowita() {
+        int suma = 0;
+        for (Miasto m : miasta) suma += m.getPopulacja();
+        return suma;
     }
 
-    public boolean moznaWydacPopulacje(int ilosc) {
-        return getWolnaPopulacja() >= ilosc;
+    public int getPopulacjaZagospodarowana() {
+        int suma = 0;
+        for (Miasto m : miasta) suma += m.getPopulacjaZajeta();
+        return suma;
     }
 
-    public void wydajPopulacje(int ilosc)    { populacjaZagospodarowana += ilosc; }
-    public void zwrocPopulacje(int ilosc)    { populacjaZagospodarowana -= ilosc; }
+    public int getWolnaPopulacja() { return getPopulacjaCaLkowita() - getPopulacjaZagospodarowana(); }
+
+    public int getBilansPozywienia() {
+        double suma = 0;
+        for (Miasto m : miasta) suma += m.getBilansPozywienia();
+        return (int) Math.round(suma);
+    }
 
     public int getKosztBudowyMiasta()        { return KOSZT_BUDOWY_MIASTA; }
 
@@ -55,12 +61,11 @@ public class Gracz {
     public boolean isCzyAI()                 { return czyAI; }
     public int getZloto()                    { return zloto; }
     public int getNauka()                    { return nauka; }
-    public int getPopulacjaCaLkowita()       { return populacjaCaLkowita; }
-    public int getPopulacjaZagospodarowana() { return populacjaZagospodarowana; }
-    public int getPozywienie()               { return pozywienie; }
+    public double getMnoznikZlota()          { return mnoznikZlota; }
 
     public void dodajZloto(int n)   { zloto += n; }
     public void odejmijZloto(int n) { zloto -= n; }
+    public void dodajMnoznikZlota(double delta) { mnoznikZlota += delta; }
 
     public List<Miasto> getMiasta()         { return miasta; }
     public List<JednostkaNaMapie> getJednostki()   { return jednostki; }
@@ -69,4 +74,19 @@ public class Gracz {
     public void usunMiasto(Miasto m)        { miasta.remove(m); }
     public void dodajJednostke(JednostkaNaMapie j) { jednostki.add(j); }
     public void usunJednostke(JednostkaNaMapie j)  { jednostki.remove(j); }
+
+    // Drzewko rozwoju
+
+    public boolean czyMaPerk(Perk perk)        { return zakupionePerki.contains(perk); }
+    public Set<Perk> getZakupionePerki()       { return zakupionePerki; }
+
+    public boolean kupPerk(Perk perk) {
+        if (czyMaPerk(perk)) return false;
+        if (perk.perkNadrzedny != null && !czyMaPerk(perk.perkNadrzedny)) return false;
+        if (nauka < perk.koszt) return false;
+        nauka -= perk.koszt;
+        zakupionePerki.add(perk);
+        perk.zastosuj(this);
+        return true;
+    }
 }

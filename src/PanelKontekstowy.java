@@ -1,11 +1,7 @@
 import javax.swing.*;
 import java.awt.*;
+import java.util.function.Consumer;
 
-/**
- * Abstrakcyjna klasa bazowa dla paneli kontekstowych (miasto / jednostka).
- * Zawiera wspólne metody pomocnicze do budowania UI w BoxLayout.
- * Podklasy implementują metodę odswiez(Gracz) wypełniając panel treścią.
- */
 public abstract class PanelKontekstowy extends JPanel {
     protected final SilnikGry silnik;
     protected final OknoGry oknoGry;
@@ -17,12 +13,7 @@ public abstract class PanelKontekstowy extends JPanel {
         setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
     }
 
-    /** Odświeża zawartość panelu do aktualnego stanu gry. */
     public abstract void odswiez(Gracz gracz);
-
-    // -------------------------------------------------------------------------
-    // Wspólne metody pomocnicze UI
-    // -------------------------------------------------------------------------
 
     protected JLabel naglowek(String tekst, Color kolor) {
         JLabel l = new JLabel(tekst);
@@ -50,5 +41,26 @@ public abstract class PanelKontekstowy extends JPanel {
         btn.setBackground(new Color(60, 90, 140));
         add(Box.createVerticalStrut(2));
         add(btn);
+    }
+
+    /**
+     * Po jednym przycisku na każdą wartość enuma implementującego Kosztowny
+     * (np. Jednostka.values(), Budynek.dostepneDoBudowy()) – dodanie nowej
+     * stałej do enuma automatycznie daje nowy przycisk, bez zmian tutaj.
+     */
+    protected <T extends Kosztowny> JButton[] stworzPrzyciskiKosztowne(T[] wartosci, Consumer<T> akcja) {
+        JButton[] przyciski = new JButton[wartosci.length];
+        for (int i = 0; i < wartosci.length; i++) {
+            T wartosc = wartosci[i];
+            JButton btn = new JButton(wartosc.getNazwa() + " (" + wartosc.getKosztWZlocie()
+                    + " zł / " + wartosc.getKosztWPopulacji() + " pop.)");
+            btn.addActionListener(e -> akcja.accept(wartosc));
+            przyciski[i] = btn;
+        }
+        return przyciski;
+    }
+
+    protected boolean stacNa(Gracz gracz, Miasto miasto, Kosztowny k) {
+        return gracz.getZloto() >= k.getKosztWZlocie() && miasto.moznaWydacPopulacje(k.getKosztWPopulacji());
     }
 }

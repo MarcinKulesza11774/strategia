@@ -7,6 +7,7 @@ public class JednostkaNaMapie extends ObiektNaMapie {
     private int maksymalnyRuch;
     private int pozostalyRuch;
     private int zasiegAtaku;
+    private boolean zaatakowalaWTejTurze;
 
     private int poziomAtaku;
     private int poziomZycia;
@@ -24,6 +25,7 @@ public class JednostkaNaMapie extends ObiektNaMapie {
         this.obrazenia = 30;
         this.maksymalnyRuch = 3;
         this.pozostalyRuch = 3;
+        this.zasiegAtaku = 1;
     }
 
     public JednostkaNaMapie(int row, int col, Gracz wlasciciel, Jednostka rodzajJednostki){
@@ -39,7 +41,7 @@ public class JednostkaNaMapie extends ObiektNaMapie {
         this.zasiegAtaku = rodzajJednostki.zasiegAtaku;
     }
 
-    public void rozpocznijNowaTure() { pozostalyRuch = maksymalnyRuch; }
+    public void rozpocznijNowaTure() { pozostalyRuch = maksymalnyRuch; zaatakowalaWTejTurze = false;}
 
     public boolean przesun(int newRow, int newCol, int kosztRuchu) {
         if (pozostalyRuch < kosztRuchu) return false;
@@ -51,10 +53,11 @@ public class JednostkaNaMapie extends ObiektNaMapie {
 
     public boolean atakuj(JednostkaNaMapie cel) {
         cel.otrzymajObrazenia(obrazenia);
-        if (cel.czyZyje()) this.otrzymajObrazenia(cel.obrazenia / 2);
-        pozostalyRuch = 0;
+        zaatakowalaWTejTurze = true;
         return !cel.czyZyje();
     }
+
+    public boolean czyMozeAtakowac() { return !zaatakowalaWTejTurze; }
 
     public void otrzymajObrazenia(int ilosc) {
         punktyZycia = Math.max(0, punktyZycia - ilosc);
@@ -76,7 +79,9 @@ public class JednostkaNaMapie extends ObiektNaMapie {
     public int getObrazenia()              { return obrazenia; }
     public int getMaksymalnyRuch()         { return maksymalnyRuch; }
     public int getPozostalyruch()          { return pozostalyRuch; }
+    public int getZasiegAtaku()            { return zasiegAtaku; }
     public int getPoziomAtaku()            { return poziomAtaku; }
     public int getPoziomZycia()            { return poziomZycia; }
     public int getPoziomRuchu()            { return poziomRuchu; }
+    public Jednostka getRodzajJednostki()  { return rodzajJednostki; }
 }
