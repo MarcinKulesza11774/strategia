@@ -9,7 +9,7 @@ public class PanelMiasta extends PanelKontekstowy {
 
     private final JButton btnBuduj  = new JButton("Buduj");
     private final JButton btnSzkol  = new JButton("Szkól jednostki");
-    private final JButton btnWstecz = new JButton("← Wstecz");
+    private final JButton btnWstecz = new JButton("Wstecz");
 
     private final PanelBudowania panelBudowania;
     private final PanelSzkolenia panelSzkolenia;

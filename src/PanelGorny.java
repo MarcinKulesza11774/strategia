@@ -1,10 +1,5 @@
 import javax.swing.*;
 import java.awt.*;
-
-/**
- * Górny pasek: zasoby gracza, licznik tury oraz przycisk drzewka rozwoju.
- * Implementuje Odswiezalny – OknoGry wola odswiez() na wszystkich komponentach.
- */
 public class PanelGorny extends JPanel implements Odswiezalny {
     private final SilnikGry silnik;
 
@@ -43,7 +38,6 @@ public class PanelGorny extends JPanel implements Odswiezalny {
         zasoby.add(etykietaJednostki);
         add(zasoby, BorderLayout.WEST);
 
-        // TODO: podpiąć realne otwieranie panelu drzewka rozwoju, gdy powstanie.
         btnDrzewkoRozwoju.setFocusPainted(false);
         btnDrzewkoRozwoju.setBackground(new Color(90, 70, 140));
         btnDrzewkoRozwoju.setForeground(Color.WHITE);

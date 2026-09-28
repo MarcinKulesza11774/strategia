@@ -43,11 +43,6 @@ public abstract class PanelKontekstowy extends JPanel {
         add(btn);
     }
 
-    /**
-     * Po jednym przycisku na każdą wartość enuma implementującego Kosztowny
-     * (np. Jednostka.values(), Budynek.dostepneDoBudowy()) – dodanie nowej
-     * stałej do enuma automatycznie daje nowy przycisk, bez zmian tutaj.
-     */
     protected <T extends Kosztowny> JButton[] stworzPrzyciskiKosztowne(T[] wartosci, Consumer<T> akcja) {
         JButton[] przyciski = new JButton[wartosci.length];
         for (int i = 0; i < wartosci.length; i++) {

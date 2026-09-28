@@ -1,10 +1,6 @@
 import javax.swing.*;
 import java.awt.*;
 
-/**
- * Panel kontekstowy wyświetlany gdy zaznaczona jest jednostka gracza.
- * Pokazuje statystyki i przyciski akcji (budowa miasta, ulepszenia).
- */
 public class PanelJednostki extends PanelKontekstowy {
     private final JButton btnBudujMiasto  = new JButton();
     private final JButton btnUlepszAtak   = new JButton("+ Atak (30 zł)");
@@ -35,8 +31,8 @@ public class PanelJednostki extends PanelKontekstowy {
 
         if (silnik.czyZaznaczonaJednostkaWMiescie()) {
             add(Box.createVerticalStrut(4));
-            add(info("Ulepszenia (" + j.getPoziomAtaku()
-                + "/" + j.getPoziomZycia() + "/" + j.getPoziomRuchu() + "):"));
+//            add(info("Ulepszenia (" + j.getPoziomAtaku()
+//                + "/" + j.getPoziomZycia() + "/" + j.getPoziomRuchu() + "):"));
         }
 
         revalidate();

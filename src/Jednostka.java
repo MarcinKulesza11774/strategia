@@ -1,6 +1,6 @@
 import java.awt.*;
 
-public enum Jednostka implements Kosztowny {BIEDNAPIERDOLONAPIECHOTA("biedna pierdolona piechota", 50, 25, 1, 4, 100, 20, TypJednostki.PIECHOTA),
+public enum Jednostka implements Kosztowny {
     WLUCZNICY("włucznicy", 50, 25, 1, 4, 100, 20, TypJednostki.PIECHOTA),
     LUCZNICY("łucznicy", 30, 40, 6, 4, 100, 30, TypJednostki.LUCZNICY),
     KONNI("konni", 30, 40, 1, 10, 80, 100, TypJednostki.KAWALERIA);
